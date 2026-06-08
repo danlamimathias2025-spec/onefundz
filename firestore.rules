@@ -45,7 +45,10 @@ service cloud.firestore {
                       isOwner(userId) || (
                         // Allow incrementing balance by exactly N1,200 for referral rewards
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
-                        request.resource.data.balance == resource.data.balance + 1200
+                        (
+                          ('balance' in resource.data && request.resource.data.balance == resource.data.balance + 1200) ||
+                          (!('balance' in resource.data) && request.resource.data.balance == 1200)
+                        )
                       ) || (
                         // Allow any authenticated user to create/update referralCode if not set
                         isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['referralCode'])
@@ -100,7 +103,15 @@ service cloud.firestore {
     match /transactions/{transactionId} {
       allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
       allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
-      allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
+      allow create: if isSignedIn() && (
+                      isEmailOwner(request.resource.data.userId) || (
+                        request.resource.data.category == 'referral' &&
+                        request.resource.data.amount == 1200 &&
+                        request.resource.data.status == 'approved' &&
+                        request.resource.data.description is string &&
+                        request.resource.data.description.size() <= 150
+                      )
+                    );
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
