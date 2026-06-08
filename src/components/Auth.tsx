@@ -81,6 +81,10 @@ export default function AuthPage() {
     try {
       const genReferralCode = formData.userName.trim().toUpperCase();
       const refInput = formData.referralCodeInput.trim().toUpperCase();
+
+      // 1. Authenticate & create user first so that lookup is performed while authenticated
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const uid = userCredential.user.uid;
       
       let referrerId: string | null = null;
       let referrerEmail: string | null = null;
@@ -102,10 +106,6 @@ export default function AuthPage() {
           console.error("Error looking up referral code:", err);
         }
       }
-
-      // 1. Authenticate & create user
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const uid = userCredential.user.uid;
       
       const newBalance = referrerId ? 1000 : 0;
 
