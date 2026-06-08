@@ -21,7 +21,8 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
   const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(onFinish, 3000);
+    // Fallback timer just in case animation completes don't fire
+    const timer = setTimeout(onFinish, 2500);
     return () => clearTimeout(timer);
   }, [onFinish]);
 
@@ -52,6 +53,12 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
             animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
             transition={{ duration: 0.8, delay: index * 0.1, type: 'spring', stiffness: 100 }}
             className={`text-5xl font-extrabold ${item.color}`}
+            onAnimationComplete={() => {
+              if (index === letters.length - 1) {
+                // Buffer of 150ms after the last letter settles before transitioning
+                setTimeout(onFinish, 150);
+              }
+            }}
           >
             {item.char}
           </motion.span>
