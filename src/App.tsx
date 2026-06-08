@@ -26,7 +26,7 @@ import GuidedTour from './components/GuidedTour';
 import EditProfileModal from './components/EditProfileModal';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where, getDoc, setDoc } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -101,6 +101,48 @@ export default function App() {
       unsubInv();
     };
   }, [user]);
+
+  // 3. Auto-heal and sync referral code details to the global index
+  useEffect(() => {
+    if (!user || !userData) return;
+
+    const syncReferralIndex = async () => {
+      let myRefCode = userData.referralCode;
+      
+      // If code is not set on the user document yet, auto-generate & write it
+      if (!myRefCode) {
+        myRefCode = (userData.userName || user.email?.split('@')[0] || 'COOP').trim().toUpperCase();
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            referralCode: myRefCode
+          }, { merge: true });
+          console.log("[Self-Healing] Created missing referralCode on user document:", myRefCode);
+        } catch (err) {
+          console.error("Failed to set missing referralCode:", err);
+          return;
+        }
+      }
+
+      try {
+        const refUpper = myRefCode.trim().toUpperCase();
+        const indexDocRef = doc(db, 'referralCodes', refUpper);
+        const indexDocSnap = await getDoc(indexDocRef);
+
+        if (!indexDocSnap.exists()) {
+          console.log("[Self-Healing] Generating missing referral index document under referralCodes collection for:", refUpper);
+          await setDoc(indexDocRef, {
+            userId: user.uid,
+            userName: userData.userName || 'Member',
+            email: userData.email || user.email || '',
+          });
+        }
+      } catch (err) {
+        console.error("Referral map self-healing error:", err);
+      }
+    };
+
+    syncReferralIndex();
+  }, [user, userData]);
 
   useEffect(() => {
     if (activeTab === 'Home') {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot, increment } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { 
   User, 
@@ -173,31 +173,21 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
         return;
       }
 
-      // 2. Query Referrer balance first
-      const refUserDocRef = doc(db, 'users', referrerId);
-      const refUserSnap = await getDoc(refUserDocRef);
-      if (!refUserSnap.exists()) {
-        setClaimStatus({ type: 'error', message: 'The referrer user record was not found.' });
-        setIsClaiming(false);
-        return;
-      }
-
-      const referrerBalance = refUserSnap.data().balance || 0;
-
-      // 3. Update Claimant's own user record: increment balance by 1000 and write referred fields
+      // 2. Update Claimant's own user record: increment balance by 1000 and write referred fields
       const myUserDocRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(myUserDocRef, {
-        balance: userData.balance + 1000,
+        balance: (userData.balance || 0) + 1000,
         referredBy: referrerId,
         referredByCode: code
       });
 
-      // 4. Update Referrer's balance: increment balance by 1200
+      // 3. Update Referrer's balance using atomic on-server increment to respect read permissions
+      const refUserDocRef = doc(db, 'users', referrerId);
       await updateDoc(refUserDocRef, {
-        balance: referrerBalance + 1200
+        balance: increment(1200)
       });
 
-      // 5. Add transactions record for Claimant (self)
+      // 4. Add transactions record for Claimant (self)
       await addDoc(collection(db, 'transactions'), {
         userId: userData.email.toLowerCase(),
         description: `Referral welcome bonus (Invited by @${referrerUserName})`,
@@ -208,7 +198,7 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
         createdAt: serverTimestamp()
       });
 
-      // 6. Add transactions record for Referrer
+      // 5. Add transactions record for Referrer
       await addDoc(collection(db, 'transactions'), {
         userId: referrerEmail.toLowerCase(),
         description: `Referral award: Invited @${userData.userName || 'Member'}`,
