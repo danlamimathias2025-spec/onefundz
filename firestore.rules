@@ -29,7 +29,10 @@ service cloud.firestore {
              (!('bankName' in data) || (data.bankName is string && data.bankName.size() > 0 && data.bankName.size() <= 100)) &&
              (!('accountName' in data) || (data.accountName is string && data.accountName.size() > 0 && data.accountName.size() <= 100)) &&
              (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() > 0 && data.accountNumber.size() <= 20)) &&
-             (!('balance' in data) || (data.balance is number));
+             (!('balance' in data) || (data.balance is number)) &&
+             (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() <= 50)) &&
+             (!('referredBy' in data) || (data.referredBy == null || data.referredBy is string)) &&
+             (!('referredByCode' in data) || (data.referredByCode == null || data.referredByCode is string));
     }
 
     match /users/{userId} {
@@ -38,7 +41,24 @@ service cloud.firestore {
       allow create: if isSignedIn() && isOwner(userId) && 
                       isValidUser(request.resource.data) &&
                       request.resource.data.keys().hasAll(['fullName', 'phoneNumber', 'email', 'userName', 'createdAt']);
-      allow update: if isAdmin() || (isSignedIn() && isOwner(userId));
+      allow update: if isAdmin() || (isSignedIn() && (
+                      isOwner(userId) || (
+                        // Allow incrementing balance by exactly N1,200 for referral rewards
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
+                        request.resource.data.balance == resource.data.balance + 1200
+                      ) || (
+                        // Allow any authenticated user to create/update referralCode if not set
+                        isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['referralCode'])
+                      )
+                    ));
+      allow delete: if isAdmin();
+    }
+
+    match /referralCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
       allow delete: if isAdmin();
     }
 

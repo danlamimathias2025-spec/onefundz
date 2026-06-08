@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, db } from '@/src/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Phone, LogIn, Sparkles, AlertCircle, CheckCircle, HelpCircle, X } from 'lucide-react';
 
@@ -15,11 +15,30 @@ export default function AuthPage() {
     password: '',
     confirmPassword: '',
     userName: '',
+    referralCodeInput: '',
   });
 
   const [errors, setErrors] = useState<any>({});
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
+
+  // Auto-detect invitation link ?ref=CODE from url query parameter
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const refCode = params.get('ref');
+      if (refCode) {
+        setFormData(prev => ({ ...prev, referralCodeInput: refCode.trim().toUpperCase() }));
+        setIsLogin(false); // Automatically shift to the registration page for invitee
+        setFeedback({
+          type: 'success',
+          message: `Referral promotion detected! You've received a ₦1,000 welcome bonus slot under reference link: [${refCode.toUpperCase()}].`
+        });
+      }
+    } catch (err) {
+      console.error("Error reading referral URL code parameter:", err);
+    }
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -60,18 +79,94 @@ export default function AuthPage() {
     if (!validate()) return;
     setLoading(true);
     try {
+      const genReferralCode = formData.userName.trim().toUpperCase();
+      const refInput = formData.referralCodeInput.trim().toUpperCase();
+      
+      let referrerId: string | null = null;
+      let referrerEmail: string | null = null;
+      let referrerUserName: string | null = null;
+
+      if (refInput) {
+        try {
+          const refDocRef = doc(db, 'referralCodes', refInput);
+          const refDocSnap = await getDoc(refDocRef);
+          if (refDocSnap.exists()) {
+            const refData = refDocSnap.data();
+            if (refData.email && refData.email.toLowerCase() !== formData.email.trim().toLowerCase()) {
+              referrerId = refData.userId;
+              referrerEmail = refData.email;
+              referrerUserName = refData.userName;
+            }
+          }
+        } catch (err) {
+          console.error("Error looking up referral code:", err);
+        }
+      }
+
       // 1. Authenticate & create user
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const uid = userCredential.user.uid;
       
+      const newBalance = referrerId ? 1000 : 0;
+
       // 2. Set Firestore record
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      await setDoc(doc(db, 'users', uid), {
         fullName: formData.fullName,
         phoneNumber: formData.phoneNumber,
         email: formData.email.toLowerCase(),
         userName: formData.userName,
-        balance: 0,
+        balance: newBalance,
+        referralCode: genReferralCode,
+        referredBy: referrerId || null,
+        referredByCode: referrerId ? refInput : null,
         createdAt: serverTimestamp(),
       });
+
+      // 3. Register user's unique referralCode mapping index
+      await setDoc(doc(db, 'referralCodes', genReferralCode), {
+        userId: uid,
+        userName: formData.userName,
+        email: formData.email.toLowerCase(),
+      });
+
+      // 4. Handle bonuses transactions if the referral is valid
+      if (referrerId && referrerEmail) {
+        // Invite welcome bonus for registering user
+        await addDoc(collection(db, 'transactions'), {
+          userId: formData.email.toLowerCase(),
+          description: `Referral welcome bonus (Invited by @${referrerUserName})`,
+          amount: 1000,
+          category: 'referral',
+          status: 'approved',
+          date: new Date().toISOString().split('T')[0],
+          createdAt: serverTimestamp()
+        });
+
+        // Credit the referrer balance with N1,200 (allowed via custom rules)
+        try {
+          const refUserDocRef = doc(db, 'users', referrerId);
+          const refUserSnap = await getDoc(refUserDocRef);
+          if (refUserSnap.exists()) {
+            const currentBalance = refUserSnap.data().balance || 0;
+            await updateDoc(refUserDocRef, {
+              balance: currentBalance + 1200
+            });
+
+            // Log referral award transactional ledger
+            await addDoc(collection(db, 'transactions'), {
+              userId: referrerEmail.toLowerCase(),
+              description: `Referral award: Invited @${formData.userName}`,
+              amount: 1200,
+              category: 'referral',
+              status: 'approved',
+              date: new Date().toISOString().split('T')[0],
+              createdAt: serverTimestamp()
+            });
+          }
+        } catch (err) {
+          console.error("Error updating referrer's balance or transactions:", err);
+        }
+      }
 
       setFeedback({
         type: 'success',
@@ -273,21 +368,41 @@ export default function AuthPage() {
             </div>
 
             {!isLogin && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Confirm Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    placeholder="••••••••"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
-                  />
+              <>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
+                    />
+                  </div>
+                  {errors.confirmPassword && <p className="text-rose-400 text-[10px] mt-0.5">{errors.confirmPassword}</p>}
                 </div>
-                {errors.confirmPassword && <p className="text-rose-400 text-[10px] mt-0.5">{errors.confirmPassword}</p>}
-              </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Referral Code</label>
+                    <span className="text-[9px] text-purple-400 font-semibold uppercase font-mono bg-purple-500/10 px-2 py-0.5 rounded border border-purple-800/20">Optional</span>
+                  </div>
+                  <div className="relative">
+                    <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 animate-pulse" size={16} />
+                    <input
+                      type="text"
+                      name="referralCodeInput"
+                      placeholder="e.g. AMADI42_COOP"
+                      value={formData.referralCodeInput}
+                      onChange={(e) => setFormData({ ...formData, referralCodeInput: e.target.value.toUpperCase() })}
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition uppercase"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             <button

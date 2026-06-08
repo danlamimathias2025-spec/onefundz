@@ -12,9 +12,24 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "bankName": { "type": "string" },
         "accountName": { "type": "string" },
-        "accountNumber": { "type": "string" }
+        "accountNumber": { "type": "string" },
+        "balance": { "type": "number" },
+        "referralCode": { "type": "string" },
+        "referredBy": { "type": "string" },
+        "referredByCode": { "type": "string" }
       },
       "required": ["fullName", "phoneNumber", "email", "userName", "createdAt"]
+    },
+    "ReferralCode": {
+      "title": "ReferralCode",
+      "description": "Unique referral code association mapping",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      },
+      "required": ["userId", "userName", "email"]
     },
     "SupportChat": {
       "title": "SupportChat",
@@ -45,6 +60,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"
+    },
+    "/referralCodes/{code}": {
+      "schema": "ReferralCode",
+      "description": "Unique lookup code index for referrals to resolve users"
     },
     "/supportChats/{chatId}": {
       "schema": "SupportChat",

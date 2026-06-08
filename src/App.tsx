@@ -13,6 +13,7 @@ import ProductList from './components/ProductList';
 import Transactions from './components/Transactions';
 import ProfileSettings from './components/ProfileSettings';
 import AdminPanel from './components/AdminPanel';
+import CoopReferral from './components/CoopReferral';
 import AuthPage from './components/Auth';
 import SkeletonCard from './components/SkeletonCard';
 import SplashScreen from './components/SplashScreen';
@@ -178,6 +179,7 @@ export default function App() {
       )}
       
       {activeTab === 'Transactions' && <Transactions />}
+      {activeTab === 'Coop' && <CoopReferral userData={userData} />}
       {activeTab === 'Mine' && <ProfileSettings onStartTour={() => { setActiveTab('Home'); setForceStartTour(true); }} />}
       {activeTab === 'Admin' && isAdmin && <AdminPanel />}
       
@@ -225,11 +227,18 @@ export default function App() {
         </motion.button>
 
         <motion.button 
-          onClick={() => alert("ONEFUNDZ Investment Cooperative Team Referral program coming soon!")} 
-          whileHover={{ scale: 1.05, y: -1 }}
+          onClick={() => setActiveTab('Coop')} 
+          whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.92 }}
-          className="relative px-4 py-1.5 flex flex-col items-center justify-center rounded-xl text-slate-450 hover:text-yellow-300 transition-colors duration-300"
+          className={`relative px-4 py-1.5 flex flex-col items-center justify-center rounded-xl transition-colors duration-300 ${activeTab === 'Coop' ? 'text-yellow-400 font-bold' : 'hover:text-slate-200'}`}
         >
+          {activeTab === 'Coop' && (
+            <motion.div
+              layoutId="nav-bg-glow"
+              className="absolute inset-x-1 inset-y-0.5 bg-yellow-500/10 dark:bg-yellow-400/8 border border-yellow-500/20 rounded-xl -z-10"
+              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            />
+          )}
           <Users size={19} />
           <span className="text-[10px] mt-1 font-medium tracking-tight font-sans">Coop</span>
         </motion.button>

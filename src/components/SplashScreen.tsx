@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import logoSrc from '../assets/images/onefundz_logo_1780826034862.png';
 
@@ -18,6 +18,8 @@ const letters = [
 ];
 
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
+  const [logoError, setLogoError] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(onFinish, 4000);
     return () => clearTimeout(timer);
@@ -25,7 +27,23 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-950 z-50">
-      <img src={logoSrc} alt="ONEFUNDZ Logo" className="w-24 h-24 rounded-full mb-8" referrerPolicy="no-referrer" />
+      {!logoError ? (
+        <img 
+          src={logoSrc} 
+          alt="ONEFUNDZ Logo" 
+          className="w-24 h-24 rounded-full mb-8 shadow-2xl object-cover" 
+          referrerPolicy="no-referrer" 
+          onError={() => setLogoError(true)}
+        />
+      ) : (
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 via-amber-500 to-amber-700 flex items-center justify-center font-black text-slate-950 shadow-2xl text-3xl border-4 border-yellow-300 mb-8 select-none"
+        >
+          OF
+        </motion.div>
+      )}
       <div className="flex space-x-2">
         {letters.map((item, index) => (
           <motion.span

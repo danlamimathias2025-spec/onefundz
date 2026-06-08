@@ -19,7 +19,7 @@ interface CombinedLedgerItem {
   id: string;
   description: string;
   amount: number;
-  category: 'deposit' | 'withdrawal' | 'purchase';
+  category: 'deposit' | 'withdrawal' | 'purchase' | 'referral';
   status: 'pending' | 'approved' | 'rejected';
   date: string;
   timestamp: number;
@@ -244,15 +244,18 @@ export default function Transactions() {
 
   // Compile unified general chronological transactions ledger
   const compiledLedger: CombinedLedgerItem[] = [
-    ...dbPurchases.map(t => ({
-      id: t.id,
-      description: t.description || 'Plan Subscription',
-      amount: -t.amount,
-      category: 'purchase' as const,
-      status: (t.status || 'approved') as any,
-      date: t.dateString,
-      timestamp: t.timeMs
-    })),
+    ...dbPurchases.map(t => {
+      const isRef = t.category === 'referral';
+      return {
+        id: t.id,
+        description: t.description || (isRef ? 'Referral Reward' : 'Plan Subscription'),
+        amount: isRef ? t.amount : -t.amount,
+        category: (t.category || 'purchase') as any,
+        status: (t.status || 'approved') as any,
+        date: t.dateString,
+        timestamp: t.timeMs
+      };
+    }),
     ...dbWithdrawals.map(w => ({
       id: w.id,
       description: `Withdrawal transfer to ${w.bankName}`,
@@ -300,7 +303,7 @@ export default function Transactions() {
   };
 
   const getAmountColor = (item: CombinedLedgerItem) => {
-    if (item.category === 'deposit') {
+    if (item.category === 'deposit' || item.category === 'referral') {
       return item.status === 'rejected' ? 'text-slate-400 dark:text-slate-600 line-through' : 'text-emerald-600 dark:text-emerald-400';
     }
     return 'text-slate-900 dark:text-slate-100';
