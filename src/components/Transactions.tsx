@@ -344,26 +344,30 @@ export default function Transactions() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {compiledLedger.map(item => (
-              <motion.div 
-                key={item.id} 
-                className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <div>
-                  <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.description}</p>
-                  <p className="text-[10px] text-slate-400 capitalize">{item.category} • {item.date}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className={`font-mono font-bold text-sm ${getAmountColor(item)}`}>
-                    {item.amount > 0 ? '+' : ''}₦ {item.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
-                  </span>
-                  {getStatusBadge(item.status)}
-                </div>
-              </motion.div>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {compiledLedger.map(item => (
+                <motion.div 
+                  layout
+                  key={item.id} 
+                  className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -15 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <div>
+                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.description}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{item.category} • {item.date}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className={`font-mono font-bold text-sm ${getAmountColor(item)}`}>
+                      {item.amount > 0 ? '+' : ''}₦ {item.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                    </span>
+                    {getStatusBadge(item.status)}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </motion.div>
         )
       ) : activeTab === 'investments' ? (
@@ -376,26 +380,30 @@ export default function Transactions() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {dbInvestments.map(inv => (
-              <motion.div 
-                key={inv.id} 
-                className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <div className="flex justify-between items-center mb-2.5">
-                  <p className="font-bold text-red-600 dark:text-red-400 text-sm">{inv.productName}</p>
-                  <span className="font-mono font-bold text-sm text-slate-950 dark:text-slate-50">₦ {inv.amount.toLocaleString()}</span>
-                </div>
-                <div className="grid grid-cols-2 text-[10px] text-slate-500 gap-y-1 border-t border-slate-100 dark:border-slate-800/60 pt-2">
-                  <div>Remaining Time: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.remainingDays} days</span></div>
-                  <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Daily</span></div>
-                  <div>Daily Yield: <span className="font-bold text-green-600 dark:text-green-400">₦ {inv.dailyPayout?.toLocaleString() || '0'}</span></div>
-                  <div className="text-right">Next Payout: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.nextPayoutDate}</span></div>
-                </div>
-              </motion.div>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {dbInvestments.map(inv => (
+                <motion.div 
+                  layout
+                  key={inv.id} 
+                  className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -15 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <div className="flex justify-between items-center mb-2.5">
+                    <p className="font-bold text-red-600 dark:text-red-400 text-sm">{inv.productName}</p>
+                    <span className="font-mono font-bold text-sm text-slate-950 dark:text-slate-50">₦ {inv.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="grid grid-cols-2 text-[10px] text-slate-500 gap-y-1 border-t border-slate-100 dark:border-slate-800/60 pt-2">
+                    <div>Remaining Time: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.remainingDays} days</span></div>
+                    <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Daily</span></div>
+                    <div>Daily Yield: <span className="font-bold text-green-600 dark:text-green-400">₦ {inv.dailyPayout?.toLocaleString() || '0'}</span></div>
+                    <div className="text-right">Next Payout: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.nextPayoutDate}</span></div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </motion.div>
         )
       ) : (
@@ -580,35 +588,39 @@ export default function Transactions() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                {filteredWithdrawals.map(w => (
-                  <motion.div 
-                    key={w.id} 
-                    className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs transition-all hover:border-slate-300 dark:hover:border-slate-700"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-bold text-sm text-slate-950 dark:text-slate-50">₦ {w.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+                <AnimatePresence mode="popLayout">
+                  {filteredWithdrawals.map(w => (
+                    <motion.div 
+                      layout
+                      key={w.id} 
+                      className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs transition-all hover:border-slate-300 dark:hover:border-slate-700"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -15 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-sm text-slate-950 dark:text-slate-50">₦ {w.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold">{w.bankName} • {w.accountName}</p>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">Acc: {w.accountNumber} • Claim: {w.dateString}</p>
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold">{w.bankName} • {w.accountName}</p>
-                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">Acc: {w.accountNumber} • Claim: {w.dateString}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      {getStatusBadge(w.status)}
-                      {(w.status || 'pending') === 'pending' && (
-                        <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-1 rounded">Awaiting Review</span>
-                      )}
-                      {w.status === 'approved' && (
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Check size={8} /> Disbursed</span>
-                      )}
-                      {w.status === 'rejected' && (
-                        <span className="text-[9px] font-bold text-red-600 bg-red-50 dark:bg-red-950/20 px-1 rounded">Cancelled & Refunded</span>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="flex flex-col items-end gap-1.5">
+                        {getStatusBadge(w.status)}
+                        {(w.status || 'pending') === 'pending' && (
+                          <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-1 rounded">Awaiting Review</span>
+                        )}
+                        {w.status === 'approved' && (
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Check size={8} /> Disbursed</span>
+                        )}
+                        {w.status === 'rejected' && (
+                          <span className="text-[9px] font-bold text-red-600 bg-red-50 dark:bg-red-950/20 px-1 rounded">Cancelled & Refunded</span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </motion.div>
             )}
           </div>
