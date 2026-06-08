@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>OneFundz | Mutual Investment Cooperative</title>
+    
+    <!-- PWA primary configs -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#090d16" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    
+    <!-- iOS support meta marks -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OneFundz" />
+    <meta name="mobile-web-app-capable" content="yes" />
+  </head>
+  <body class="bg-slate-950 text-white selection:bg-yellow-500/30 selection:text-yellow-400">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((reg) => {
+              console.log('[PWA Service Worker] Registered successfully with scope:', reg.scope);
+            })
+            .catch((err) => {
+              console.error('[PWA Service Worker] Registration failed:', err);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ca8a04" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ca8a04" stop-opacity="0.0" />
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Background Shield Canvas -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Outer Elegant Gold Multiplier Ring -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="url(#goldGrad)" stroke-width="12" filter="url(#softShadow)" />
+  <circle cx="256" cy="256" r="162" fill="none" stroke="#ca8a04" stroke-opacity="0.25" stroke-dasharray="16 8" />
+
+  <!-- Central "1F" Safe Vault & Wealth Symbol -->
+  <g filter="url(#softShadow)" transform="translate(141, 131)">
+    <!-- Shield/Coin Base -->
+    <path d="M 115 15 L 15 50 L 15 140 C 15 200 115 240 115 240 C 115 240 215 200 215 140 L 215 50 Z" fill="url(#goldGrad)" />
+    <!-- Outer Shield Highlight Line -->
+    <path d="M 115 25 L 27 56 L 27 136 C 27 186 115 222 115 222 C 115 222 203 186 203 136 L 203 56 Z" fill="none" stroke="#ffffff" stroke-opacity="0.3" stroke-width="4" />
+    
+    <!-- Big Stylized '1' and 'F' Symbol inside the crest -->
+    <text x="115" y="160" font-family="'Inter', sans-serif, system-ui" font-weight="900" font-size="110" fill="#0f172a" text-anchor="middle" letter-spacing="-4">1F</text>
+  </g>
+
+  <!-- Decorative Sparkles/Coins to depict Investment growth -->
+  <circle cx="340" cy="150" r="14" fill="#fbbf24" stroke="#ffffff" stroke-width="2" />
+  <path d="M 340 130 L 340 170 M 320 150 L 360 150" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" />
+
+  <circle cx="170" cy="360" r="8" fill="#fbbf24" />
+</svg>

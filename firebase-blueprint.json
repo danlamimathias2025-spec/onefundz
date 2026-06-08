@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "userName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "bankName": { "type": "string" },
+        "accountName": { "type": "string" },
+        "accountNumber": { "type": "string" }
+      },
+      "required": ["fullName", "phoneNumber", "email", "userName", "createdAt"]
+    },
+    "SupportChat": {
+      "title": "SupportChat",
+      "description": "Support chat session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["open", "closed"] }
+      },
+      "required": ["userId", "createdAt", "status"]
+    },
+    "SupportMessage": {
+      "title": "SupportMessage",
+      "description": "Support message",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "userId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "userId", "senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/supportChats/{chatId}": {
+      "schema": "SupportChat",
+      "description": "Support chat sessions"
+    },
+    "/supportChats/{chatId}/messages/{messageId}": {
+      "schema": "SupportMessage",
+      "description": "Messages within a support chat"
+    }
+  }
+}

@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { 
+      return isSignedIn() && 
+             ('email' in request.auth.token) && 
+             (request.auth.token.email == 'danlamimathias2025@gmail.com' ||
+              request.auth.token.email.matches('(?i)^danlamimathias2025@gmail[.]com$')); 
+    }
+    function isOwnerEmail(userEmail) {
+      return isSignedIn() && (
+        ('email' in request.auth.token && request.auth.token.email == userEmail) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == userEmail)
+      );
+    }
+    function isEmailOwner(userEmail) {
+      return isSignedIn() && ('email' in request.auth.token && request.auth.token.email == userEmail);
+    }
+    function isValidUser(data) {
+      return data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             data.phoneNumber is string && data.phoneNumber.size() >= 0 && data.phoneNumber.size() <= 20 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() <= 50 &&
+             data.createdAt is timestamp &&
+             (!('bankName' in data) || (data.bankName is string && data.bankName.size() > 0 && data.bankName.size() <= 100)) &&
+             (!('accountName' in data) || (data.accountName is string && data.accountName.size() > 0 && data.accountName.size() <= 100)) &&
+             (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() > 0 && data.accountNumber.size() <= 20)) &&
+             (!('balance' in data) || (data.balance is number));
+    }
+
+    match /users/{userId} {
+      allow list: if isAdmin();
+      allow read: if isSignedIn() && (isAdmin() || isOwner(userId));
+      allow create: if isSignedIn() && isOwner(userId) && 
+                      isValidUser(request.resource.data) &&
+                      request.resource.data.keys().hasAll(['fullName', 'phoneNumber', 'email', 'userName', 'createdAt']);
+      allow update: if isAdmin() || (isSignedIn() && isOwner(userId));
+      allow delete: if isAdmin();
+    }
+
+    match /supportChats/{chatId} {
+      allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+      allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+      allow create: if isSignedIn() && (isAdmin() || isEmailOwner(request.resource.data.userId));
+      allow update: if isAdmin();
+      
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+        allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+        allow create: if isSignedIn() && (isAdmin() || isEmailOwner(request.resource.data.userId));
+      }
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+      allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+      allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
+      allow update: if isAdmin();
+    }
+
+    match /deposits/{depositId} {
+      allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+      allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+      allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
+      allow update: if isAdmin();
+    }
+
+    match /investments/{investmentId} {
+      allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+      allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+      allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
+      allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
+      allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
