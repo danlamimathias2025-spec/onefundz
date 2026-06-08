@@ -107,7 +107,7 @@ export default function AuthPage() {
         }
       }
       
-      const newBalance = referrerId ? 1000 : 0;
+      const newBalance = 500 + (referrerId ? 1000 : 0);
 
       // 2. Set Firestore record
       await setDoc(doc(db, 'users', uid), {
@@ -129,7 +129,18 @@ export default function AuthPage() {
         email: formData.email.toLowerCase(),
       });
 
-      // 4. Handle bonuses transactions if the referral is valid
+      // 4. Record sign-up welcome bonus of N500
+      await addDoc(collection(db, 'transactions'), {
+        userId: formData.email.toLowerCase(),
+        description: 'Welcome Registration Bonus',
+        amount: 500,
+        category: 'referral',
+        status: 'approved',
+        date: new Date().toISOString().split('T')[0],
+        createdAt: serverTimestamp()
+      });
+
+      // 5. Handle bonuses transactions if the referral is valid
       if (referrerId && referrerEmail) {
         // Invite welcome bonus for registering user
         await addDoc(collection(db, 'transactions'), {

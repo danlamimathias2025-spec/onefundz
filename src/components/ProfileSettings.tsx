@@ -47,7 +47,10 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
     email: '',
     fullName: '',
     phoneNumber: '',
-    avatarUrl: ''
+    avatarUrl: '',
+    referralCode: null as string | null,
+    referredBy: null as string | null,
+    referredByCode: null as string | null
   });
   const [loading, setLoading] = useState(true);
   
@@ -121,6 +124,117 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
   // In-app interactive Logout Confirmation Modal state
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // Invitation claim states
+  const [invitationCode, setInvitationCode] = useState('');
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimStatus, setClaimStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleClaimInvitation = async () => {
+    if (!auth.currentUser) return;
+    const code = invitationCode.trim().toUpperCase();
+    if (!code) {
+      setClaimStatus({ type: 'error', message: 'Please enter a valid invitation code.' });
+      return;
+    }
+
+    if (userData.referralCode && code === userData.referralCode.toUpperCase()) {
+      setClaimStatus({ type: 'error', message: 'You cannot claim your own invitation code!' });
+      return;
+    }
+
+    setIsClaiming(true);
+    setClaimStatus(null);
+
+    try {
+      // 1. Lookup code from referralCodes
+      const refDocRef = doc(db, 'referralCodes', code);
+      const refDocSnap = await getDoc(refDocRef);
+      if (!refDocSnap.exists()) {
+        setClaimStatus({ type: 'error', message: 'This invitation code is invalid. Check and try again.' });
+        setIsClaiming(false);
+        return;
+      }
+
+      const refData = refDocSnap.data();
+      const referrerId = refData.userId;
+      const referrerEmail = refData.email;
+      const referrerUserName = refData.userName;
+
+      if (referrerId === auth.currentUser.uid) {
+        setClaimStatus({ type: 'error', message: 'You cannot claim your own invitation code!' });
+        setIsClaiming(false);
+        return;
+      }
+
+      // Check if referrer's email is same as registered email
+      if (referrerEmail && userData.email && referrerEmail.toLowerCase() === userData.email.toLowerCase()) {
+        setClaimStatus({ type: 'error', message: 'Invalid self-referral detected.' });
+        setIsClaiming(false);
+        return;
+      }
+
+      // 2. Query Referrer balance first
+      const refUserDocRef = doc(db, 'users', referrerId);
+      const refUserSnap = await getDoc(refUserDocRef);
+      if (!refUserSnap.exists()) {
+        setClaimStatus({ type: 'error', message: 'The referrer user record was not found.' });
+        setIsClaiming(false);
+        return;
+      }
+
+      const referrerBalance = refUserSnap.data().balance || 0;
+
+      // 3. Update Claimant's own user record: increment balance by 1000 and write referred fields
+      const myUserDocRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(myUserDocRef, {
+        balance: userData.balance + 1000,
+        referredBy: referrerId,
+        referredByCode: code
+      });
+
+      // 4. Update Referrer's balance: increment balance by 1200
+      await updateDoc(refUserDocRef, {
+        balance: referrerBalance + 1200
+      });
+
+      // 5. Add transactions record for Claimant (self)
+      await addDoc(collection(db, 'transactions'), {
+        userId: userData.email.toLowerCase(),
+        description: `Referral welcome bonus (Invited by @${referrerUserName})`,
+        amount: 1000,
+        category: 'referral',
+        status: 'approved',
+        date: new Date().toISOString().split('T')[0],
+        createdAt: serverTimestamp()
+      });
+
+      // 6. Add transactions record for Referrer
+      await addDoc(collection(db, 'transactions'), {
+        userId: referrerEmail.toLowerCase(),
+        description: `Referral award: Invited @${userData.userName || 'Member'}`,
+        amount: 1200,
+        category: 'referral',
+        status: 'approved',
+        date: new Date().toISOString().split('T')[0],
+        createdAt: serverTimestamp()
+      });
+
+      setClaimStatus({
+        type: 'success',
+        message: `Successfully claimed! ₦1,000.00 has been credited to your balance and @${referrerUserName} has received their bonus too.`
+      });
+      setInvitationCode('');
+    } catch (error: any) {
+      console.error('Error claiming invitation bonus:', error);
+      setClaimStatus({
+        type: 'error',
+        message: 'Could not claim bonus. Please check your network connection and try again.'
+      });
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   useEffect(() => {
     if (!auth.currentUser) {
       setLoading(false);
@@ -142,7 +256,10 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
           email: data.email || auth.currentUser?.email || '',
           fullName: data.fullName || '',
           phoneNumber: data.phoneNumber || '',
-          avatarUrl: data.avatarUrl || ''
+          avatarUrl: data.avatarUrl || '',
+          referralCode: data.referralCode || null,
+          referredBy: data.referredBy || null,
+          referredByCode: data.referredByCode || null
         }));
       }
       setLoading(false);
@@ -492,6 +609,88 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
                   </button>
                 </div>
               </div>
+
+              {/* Claim Invitation Bonus Section */}
+              {userData.referredByCode ? (
+                <div className="bg-white/5 backdrop-blur-sm p-5 rounded-xl border border-white/10 shadow-sm space-y-4">
+                  <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-400" />
+                    Invitation & Referrals
+                  </span>
+                  <div className="p-3 bg-purple-950/40 rounded-lg border border-purple-800/40 text-xs text-purple-250">
+                    <span className="block font-bold text-white mb-0.5">Invitation claimed successfully!</span>
+                    <span className="text-[11px] block text-purple-300/85">Referred by code: <strong className="font-mono text-purple-200">{userData.referredByCode}</strong></span>
+                    <span className="text-[10px] text-emerald-400 font-bold block mt-1.5 flex items-center gap-1.5">
+                      <CheckCircle size={10} /> ₦1,000.00 welcome bonus has been credited
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white/5 backdrop-blur-sm p-5 rounded-xl border border-white/10 shadow-sm space-y-4">
+                  <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-400 animate-pulse" />
+                    Claim Invitation Bonus
+                  </span>
+                  
+                  <div className="space-y-3.5">
+                    <p className="text-[11px] text-purple-305 leading-relaxed">
+                      Received an invitation code from a friend? Enter it below to claim your <strong className="text-white font-bold">₦1,000.00 welcome bonus</strong> instantly! Your referrer also gets ₦1,200.00 as a token of appreciation.
+                    </p>
+                    <div>
+                      <label className="block text-[10px] uppercase font-semibold text-purple-300 mb-1">Invitation Code</label>
+                      <input 
+                        type="text" 
+                        value={invitationCode} 
+                        onChange={(e) => {
+                          setInvitationCode(e.target.value);
+                          if (claimStatus) setClaimStatus(null);
+                        }} 
+                        disabled={isClaiming}
+                        className="w-full bg-purple-950/40 border border-purple-800/60 p-3 rounded-lg text-xs text-white placeholder-purple-400/40 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-mono uppercase" 
+                        placeholder="e.g. USERNAME" 
+                      />
+                    </div>
+
+                    {claimStatus && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`p-3 rounded-lg text-[11px] flex gap-2 items-start ${
+                          claimStatus.type === 'success' 
+                            ? 'bg-emerald-950/50 border border-emerald-500/20 text-emerald-300' 
+                            : 'bg-red-950/50 border border-red-500/20 text-red-300'
+                        }`}
+                      >
+                        {claimStatus.type === 'success' ? (
+                          <CheckCircle size={14} className="shrink-0 text-emerald-400 mt-0.5" />
+                        ) : (
+                          <AlertCircle size={14} className="shrink-0 text-red-400 mt-0.5" />
+                        )}
+                        <div>{claimStatus.message}</div>
+                      </motion.div>
+                    )}
+
+                    <button 
+                      onClick={handleClaimInvitation} 
+                      disabled={isClaiming || !invitationCode.trim()}
+                      className={`w-full py-3 rounded-lg font-bold shadow-md active:scale-98 transition text-xs flex items-center justify-center gap-2 ${
+                        isClaiming || !invitationCode.trim()
+                          ? 'bg-purple-950 text-purple-500 border border-purple-850 cursor-not-allowed shadow-none'
+                          : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-700 hover:to-indigo-700 text-white'
+                      }`}
+                    >
+                      {isClaiming ? (
+                        <>
+                          <Loader2 size={13} className="shrink-0 animate-spin" />
+                          Validating invitation...
+                        </>
+                      ) : (
+                        <>Claim ₦1,000.00 Rewards</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Accordion: Bank Information  */}
               <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-sm overflow-hidden">
