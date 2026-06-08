@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
+import logoSrc from '../assets/images/onefundz_logo_1780826034862.png';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -24,7 +25,7 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-950 z-50">
-      <img src="/src/assets/images/onefundz_logo_1780826034862.png" alt="ONEFUNDZ Logo" className="w-24 h-24 rounded-full mb-8" referrerPolicy="no-referrer" />
+      <img src={logoSrc} alt="ONEFUNDZ Logo" className="w-24 h-24 rounded-full mb-8" referrerPolicy="no-referrer" />
       <div className="flex space-x-2">
         {letters.map((item, index) => (
           <motion.span

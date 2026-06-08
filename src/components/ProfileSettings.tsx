@@ -116,6 +116,9 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
   
   // In-app interactive Withdrawal Confirmation Modal state (prevents iframe blockers)
   const [showWithdrawCheckOverlay, setShowWithdrawCheckOverlay] = useState(false);
+  
+  // In-app interactive Logout Confirmation Modal state
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (!auth.currentUser) {
@@ -672,7 +675,7 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
 
             {/* Logout Panel */}
             <button 
-              onClick={handleLogout} 
+              onClick={() => setShowLogoutConfirm(true)} 
               className="flex items-center justify-center gap-2 w-full p-3.5 rounded-lg text-red-200 hover:text-white font-semibold border border-red-900/30 bg-red-950/20 hover:bg-red-950/45 transition text-xs"
             >
               <LogOut size={16} />
@@ -1072,6 +1075,61 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
                       Confirm & Place
                     </>
                   )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/75 z-55 flex items-center justify-center p-4 backdrop-blur-sm"
+            id="logout-inapp-confirmation-overlay"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl w-full max-w-sm space-y-5 text-white shadow-2xl relative overflow-hidden"
+              id="logout-inapp-confirmation-container"
+            >
+              <div className="text-center space-y-1">
+                <div className="w-11 h-11 rounded-full bg-red-950 mx-auto flex items-center justify-center border border-red-900/40 text-red-400 mb-2 shadow-inner">
+                  <LogOut size={20} />
+                </div>
+                <h3 className="font-extrabold text-white text-base">Sign Out Confirmation</h3>
+                <p className="text-[10px] text-slate-400">Are you sure you want to log out of your account?</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/40 flex gap-2.5">
+                <div className="text-yellow-500 shrink-0 mt-0.5 animate-pulse">
+                  <AlertCircle size={15} />
+                </div>
+                <p className="text-[10px] text-slate-300 leading-relaxed font-medium">
+                  Logging out will end your current session. You will need to sign back in with your credentials to access your dashboard, balances, and community coops.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-3 text-xs font-bold rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-750 border border-slate-700/50 transition active:scale-95"
+                  id="logout-cancel-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex-1 py-3 text-xs font-bold rounded-xl bg-gradient-to-tr from-red-650 to-rose-600 hover:from-red-600 hover:to-rose-500 text-white shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
+                  id="logout-confirm-btn"
+                >
+                  <LogOut size={13} />
+                  Confirm Logout
                 </button>
               </div>
             </motion.div>

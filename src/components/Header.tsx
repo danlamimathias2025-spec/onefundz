@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sun, Moon, MessageCircle } from 'lucide-react';
+import logoSrc from '../assets/images/onefundz_logo_1780826034862.png';
 
 interface HeaderProps {
   toggleTheme: () => void;
@@ -10,7 +11,7 @@ export default function Header({ toggleTheme, isDarkMode }: HeaderProps) {
   return (
     <header className="bg-slate-900 dark:bg-slate-950 p-3 flex items-center justify-between shadow-md">
       <div className="flex items-center gap-2">
-        <img src="/src/assets/images/onefundz_logo_1780826034862.png" alt="ONEFUNDZ Logo" className="w-8 h-8 rounded-full border border-yellow-400/20" referrerPolicy="no-referrer" />
+        <img src={logoSrc} alt="ONEFUNDZ Logo" className="w-8 h-8 rounded-full border border-yellow-400/20" referrerPolicy="no-referrer" />
         <div className="text-white font-bold text-lg tracking-tight">
           ONE<span className="text-yellow-400">F</span>UNDZ
         </div>
