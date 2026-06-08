@@ -46,7 +46,8 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
     balance: 0,
     email: '',
     fullName: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    avatarUrl: ''
   });
   const [loading, setLoading] = useState(true);
   
@@ -140,7 +141,8 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
           balance: data.balance || 0,
           email: data.email || auth.currentUser?.email || '',
           fullName: data.fullName || '',
-          phoneNumber: data.phoneNumber || ''
+          phoneNumber: data.phoneNumber || '',
+          avatarUrl: data.avatarUrl || ''
         }));
       }
       setLoading(false);
@@ -407,9 +409,18 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
               <motion.div 
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-purple-400 rounded-full flex items-center justify-center mb-3 relative shadow-inner border border-purple-300/20"
+                className="w-20 h-20 bg-gradient-to-tr from-purple-600 to-purple-400 rounded-full flex items-center justify-center mb-3 relative shadow-inner border border-purple-300/20 overflow-hidden"
               >
-                <User size={38} className="text-white" />
+                {userData.avatarUrl ? (
+                  <img 
+                    src={userData.avatarUrl} 
+                    alt={userData.userName} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <User size={38} className="text-white" />
+                )}
                 <div className="absolute bottom-0 right-0 p-1 bg-purple-900 rounded-full border border-purple-500/30">
                   <Camera size={12} className="text-purple-300" />
                 </div>

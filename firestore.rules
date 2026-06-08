@@ -32,7 +32,8 @@ service cloud.firestore {
              (!('balance' in data) || (data.balance is number)) &&
              (!('referralCode' in data) || (data.referralCode is string && data.referralCode.size() <= 50)) &&
              (!('referredBy' in data) || (data.referredBy == null || data.referredBy is string)) &&
-             (!('referredByCode' in data) || (data.referredByCode == null || data.referredByCode is string));
+             (!('referredByCode' in data) || (data.referredByCode == null || data.referredByCode is string)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 400000));
     }
 
     match /users/{userId} {

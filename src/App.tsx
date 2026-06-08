@@ -23,6 +23,7 @@ import InvestmentBreakdownChart from './components/InvestmentBreakdownChart';
 import DepositModal from './components/DepositModal';
 import FinanceNews from './components/FinanceNews';
 import GuidedTour from './components/GuidedTour';
+import EditProfileModal from './components/EditProfileModal';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, query, collection, where } from 'firebase/firestore';
@@ -37,6 +38,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [forceStartTour, setForceStartTour] = useState(false);
 
   useEffect(() => {
@@ -130,12 +132,28 @@ export default function App() {
         <>
           <Header toggleTheme={toggleTheme} isDarkMode={isDarkMode} />
           
-          <div id="dashboard-user-banner" className="p-4 flex items-center space-x-2 border-b border-slate-100 dark:border-slate-900/60 bg-slate-50/50 dark:bg-slate-900/10">
-            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-300 capitalize">
-              {userData?.userName ? userData.userName.charAt(0) : user.email?.charAt(0)}
-            </div>
+          <div 
+            id="dashboard-user-banner" 
+            onClick={() => setIsEditProfileOpen(true)}
+            className="p-4 flex items-center space-x-2 border-b border-slate-100 dark:border-slate-900/60 bg-slate-50/50 dark:bg-slate-900/10 hover:bg-slate-100/70 dark:hover:bg-slate-900/30 cursor-pointer transition-colors"
+          >
+            {userData?.avatarUrl ? (
+              <img 
+                src={userData.avatarUrl} 
+                alt={userData?.userName || 'Profile'} 
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-850"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-300 capitalize">
+                {userData?.userName ? userData.userName.charAt(0) : user.email?.charAt(0)}
+              </div>
+            )}
             <div className="flex flex-col">
-              <span className="font-bold text-slate-900 dark:text-white text-xs leading-none">Welcome, {userData?.userName || 'Member'}</span>
+              <span className="font-bold text-slate-900 dark:text-white text-xs leading-none flex items-center gap-1.5">
+                Welcome, {userData?.userName || 'Member'}
+                <span className="text-[9px] text-indigo-550 dark:text-indigo-400 font-medium tracking-normal hover:underline">(Edit)</span>
+              </span>
               <span className="text-[10px] text-slate-400 mt-0.5">{user.email}</span>
             </div>
           </div>
@@ -185,6 +203,14 @@ export default function App() {
       
       <AnimatePresence>
         {isDepositModalOpen && <DepositModal onClose={() => setIsDepositModalOpen(false)} />}
+        {isEditProfileOpen && (
+          <EditProfileModal
+            userId={user.uid}
+            currentUserName={userData?.userName || ''}
+            currentAvatarUrl={userData?.avatarUrl || ''}
+            onClose={() => setIsEditProfileOpen(false)}
+          />
+        )}
       </AnimatePresence>
 
       {user && (
