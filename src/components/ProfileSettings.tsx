@@ -616,67 +616,39 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
                   </div>
                 </div>
               ) : (
-                <div className="bg-white/5 backdrop-blur-sm p-5 rounded-xl border border-white/10 shadow-sm space-y-4">
-                  <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-amber-400 animate-pulse" />
+                <div className="bg-white/5 backdrop-blur-sm p-5 rounded-xl border border-white/10 shadow-sm space-y-4 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-3">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-405 text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                      <Sparkles size={10} />
+                      Coming Soon
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-purple-400/60 font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-400/50" />
                     Claim Invitation Bonus
                   </span>
                   
-                  <div className="space-y-3.5">
-                    <p className="text-[11px] text-purple-305 leading-relaxed">
-                      Received an invitation code from a friend? Enter it below to claim your <strong className="text-white font-bold">₦1,000.00 welcome bonus</strong> instantly! Your referrer also gets ₦1,200.00 as a token of appreciation.
+                  <div className="space-y-3.5 opacity-50 pointer-events-none grayscale-[30%]">
+                    <p className="text-[11px] text-purple-300/80 leading-relaxed pr-24">
+                      Received an invitation code from a friend? Enter it below to claim your <strong className="text-white/80 font-bold">₦1,000.00 welcome bonus</strong>!
                     </p>
                     <div>
-                      <label className="block text-[10px] uppercase font-semibold text-purple-300 mb-1">Invitation Code</label>
+                      <label className="block text-[10px] uppercase font-semibold text-purple-400/60 mb-1">Invitation Code</label>
                       <input 
                         type="text" 
-                        value={invitationCode} 
-                        onChange={(e) => {
-                          setInvitationCode(e.target.value);
-                          if (claimStatus) setClaimStatus(null);
-                        }} 
-                        disabled={isClaiming}
-                        className="w-full bg-purple-950/40 border border-purple-800/60 p-3 rounded-lg text-xs text-white placeholder-purple-400/40 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-mono uppercase" 
+                        value="" 
+                        onChange={() => {}}
+                        disabled={true}
+                        className="w-full bg-purple-950/20 border border-purple-800/30 p-3 rounded-lg text-xs text-white/50 focus:outline-none font-mono uppercase" 
                         placeholder="e.g. USERNAME" 
                       />
                     </div>
 
-                    {claimStatus && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`p-3 rounded-lg text-[11px] flex gap-2 items-start ${
-                          claimStatus.type === 'success' 
-                            ? 'bg-emerald-950/50 border border-emerald-500/20 text-emerald-300' 
-                            : 'bg-red-950/50 border border-red-500/20 text-red-300'
-                        }`}
-                      >
-                        {claimStatus.type === 'success' ? (
-                          <CheckCircle size={14} className="shrink-0 text-emerald-400 mt-0.5" />
-                        ) : (
-                          <AlertCircle size={14} className="shrink-0 text-red-400 mt-0.5" />
-                        )}
-                        <div>{claimStatus.message}</div>
-                      </motion.div>
-                    )}
-
                     <button 
-                      onClick={handleClaimInvitation} 
-                      disabled={isClaiming || !invitationCode.trim()}
-                      className={`w-full py-3 rounded-lg font-bold shadow-md active:scale-98 transition text-xs flex items-center justify-center gap-2 ${
-                        isClaiming || !invitationCode.trim()
-                          ? 'bg-purple-950 text-purple-500 border border-purple-850 cursor-not-allowed shadow-none'
-                          : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-700 hover:to-indigo-700 text-white'
-                      }`}
+                      disabled={true}
+                      className="w-full py-3 rounded-lg font-bold transition text-xs flex items-center justify-center gap-2 bg-purple-950 text-purple-500 border border-purple-850 cursor-not-allowed shadow-none"
                     >
-                      {isClaiming ? (
-                        <>
-                          <Loader2 size={13} className="shrink-0 animate-spin" />
-                          Validating invitation...
-                        </>
-                      ) : (
-                        <>Claim ₦1,000.00 Rewards</>
-                      )}
+                      Claim ₦1,000.00 Rewards
                     </button>
                   </div>
                 </div>

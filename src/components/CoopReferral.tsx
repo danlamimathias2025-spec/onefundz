@@ -1,286 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { auth, db } from '../lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { Gift, Copy, Check, Users, Coins, Award, ArrowRight, Share2, Sparkles, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { Users, Sparkles, Lock, Gift, Bell, Check, Shield, Rocket, ArrowRight } from 'lucide-react';
+import { useToast } from '../lib/toast';
 
 interface CoopReferralProps {
   userData: any;
 }
 
 export default function CoopReferral({ userData }: CoopReferralProps) {
-  const [refTransactions, setRefTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [userRefCode, setUserRefCode] = useState<string>('');
+  const [isNotified, setIsNotified] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { success } = useToast();
 
-  useEffect(() => {
-    if (!userData) return;
-
-    const userId = userData.id || auth.currentUser?.uid;
-    if (!userId) return;
-
-    // 1. Maintain referral code. If user exists but is missing a code, generate and save it
-    const fetchOrGenerateCode = async () => {
-      if (userData.referralCode) {
-        setUserRefCode(userData.referralCode);
-        return;
-      }
-
-      // Generate upper code based on username or email
-      const customCode = (userData.userName || auth.currentUser?.email?.split('@')[0] || 'COOP').trim().toUpperCase();
-      try {
-        // Double check if code is already registered in mapping index
-        const indexDocRef = doc(db, 'referralCodes', customCode);
-        const indexDocSnap = await getDoc(indexDocRef);
-        
-        let finalCode = customCode;
-        if (indexDocSnap.exists() && indexDocSnap.data()?.userId !== userId) {
-          // Add random digits to ensure absolute uniqueness
-          finalCode = `${customCode}${Math.floor(100 + Math.random() * 900)}`;
-        }
-
-        // Save on both user doc and mapping index with safe merge format to avoid crashes
-        await setDoc(doc(db, 'users', userId), {
-          referralCode: finalCode
-        }, { merge: true });
-
-        await setDoc(doc(db, 'referralCodes', finalCode), {
-          userId: userId,
-          userName: userData.userName || 'Member',
-          email: userData.email || auth.currentUser?.email || '',
-        });
-
-        setUserRefCode(finalCode);
-      } catch (err) {
-        console.error("Error setting up missing referral code:", err);
-        // Fallback local setting to keep UI functional
-        setUserRefCode(customCode);
-      }
-    };
-
-    fetchOrGenerateCode();
-
-    // 2. Fetch standard user referral rewards in real-time from transactions collection
-    const userEmail = (userData.email || auth.currentUser?.email || '').toLowerCase();
-    const q = query(
-      collection(db, 'transactions'),
-      where('userId', '==', userEmail)
-    );
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      const allTx = snapshot.docs.map(doc => {
-        const data = doc.data() as any;
-        const createdTime = data.createdAt?.seconds 
-          ? data.createdAt.seconds * 1000 
-          : (data.createdAt ? new Date(data.createdAt).getTime() : Date.now());
-        return {
-          id: doc.id,
-          ...data,
-          timeMs: createdTime,
-          dateString: data.date || new Date(createdTime).toLocaleDateString()
-        };
-      });
-
-      // Filter for those marked as referral earnings
-      const filtered = allTx
-        .filter(t => t.category === 'referral')
-        .sort((a, b) => b.timeMs - a.timeMs);
-
-      setRefTransactions(filtered);
+  const handleNotifyMe = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setIsNotified(true);
       setLoading(false);
-    }, (error) => {
-      console.error("Error loading referral rewards:", error);
-      setLoading(false);
-    });
-
-    return () => unsub();
-  }, [userData]);
-
-  const referralCode = userRefCode || (userData?.userName ? userData.userName.toUpperCase() : 'COOP');
-  const invitationLink = `${window.location.origin}/?ref=${referralCode}`;
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(invitationLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+      success(
+        "Notification set", 
+        "Fantastic! We've registered your interest. We will notify you immediately when OneFundz Coop & Team Pool goes live."
+      );
+    }, 900);
   };
-
-  // Calculate statistics with bulletproof string safeguards
-  const totalInvited = refTransactions.filter(t => {
-    const desc = t.description || '';
-    return desc.includes('Introd') || desc.includes('Invited') || t.amount === 1200;
-  }).length;
-  const totalEarnings = refTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
 
   return (
     <div className="p-4 bg-slate-50 dark:bg-slate-950 min-h-screen pb-24" id="coop-referral-screen">
-      <div className="max-w-md mx-auto space-y-5">
+      <div className="max-w-md mx-auto space-y-6 pt-4">
         
-        {/* Page Header */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1 px-2.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/50 dark:border-purple-900/30 font-mono">
-              COOPERATIVE POWER
-            </span>
-          </div>
-          <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            Referral Network Hub
+        {/* Coming Soon Graphic Badge */}
+        <div className="flex justify-center">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-405 text-[10px] font-black uppercase tracking-wider font-mono animate-pulse"
+          >
+            <Sparkles size={11} />
+            Coming Soon to OneFundz
+          </motion.div>
+        </div>
+
+        {/* Header Block */}
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
+            Coop & Pool Hub
           </h2>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Invite your investment cooperative colleagues to ONEFUNDZ and watch your mutual portfolio grow.
+          <p className="text-xs text-slate-400 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+            Collaborative investment pools, collective savings circles, and micro-split compound returns with your trusted network.
           </p>
         </div>
 
-        {/* Highlight Banner / Program terms */}
-        <div className="bg-gradient-to-br from-purple-900 to-indigo-950 border border-purple-800/40 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-400/5 rounded-full blur-xl pointer-events-none" />
-          <div className="space-y-4 relative z-10">
-            <div className="flex items-center gap-2 text-yellow-400">
-              <Gift size={20} className="animate-bounce" />
-              <span className="font-extrabold text-[11px] uppercase tracking-wider font-mono">Generous Dual Bonuses</span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 divide-x divide-purple-800/50">
-              <div className="space-y-1">
-                <p className="text-[10px] text-purple-300 font-semibold uppercase tracking-wider font-mono">You get</p>
-                <p className="text-2xl font-black text-white">₦ 1,200</p>
-                <p className="text-[9px] text-purple-200/80">For every verified sign-up</p>
-              </div>
-              <div className="space-y-1 pl-4">
-                <p className="text-[10px] text-purple-300 font-semibold uppercase tracking-wider font-mono">They get</p>
-                <p className="text-2xl font-black text-yellow-400">₦ 1,000</p>
-                <p className="text-[9px] text-purple-200/80">Immediate welcome balance</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Copyable Invitation Panel */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs space-y-4">
-          <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/60">
-            <div>
-              <p className="text-xs font-extrabold text-slate-800 dark:text-slate-200">Your Invitation Code</p>
-              <p className="text-[10px] text-slate-400">Share with prospective members</p>
-            </div>
-            <span className="text-xs font-black font-mono px-3.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-950 text-purple-600 dark:text-purple-400 border border-slate-200 dark:border-slate-800 tracking-wide select-all shadow-inner">
-              {referralCode}
-            </span>
+        {/* Interactive Launch Card */}
+        <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 border border-purple-900/30 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden text-center space-y-5">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-lg border border-indigo-400/20">
+            <Users size={28} className="text-white animate-pulse" />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">Unique Referral URL</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={invitationLink}
-                className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/60 p-2.5 rounded-xl text-[10px] text-slate-500 font-mono outline-none select-all"
-              />
-              <button
-                type="button"
-                onClick={copyToClipboard}
-                className="px-4 py-2 text-xs font-extrabold rounded-xl bg-purple-600 hover:bg-purple-750 text-white transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-base">OneFundz Team Pools v2.0</h3>
+            <p className="text-[11px] text-purple-300 leading-relaxed max-w-xs mx-auto">
+              Our engineering team is actively coding multiplayer savings and high-yield circles. Be the first to know when we deploy!
+            </p>
+          </div>
+
+          <div className="pt-2">
+            {isNotified ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full py-3 px-4 bg-emerald-950/45 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2"
               >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copied ? 'Copied' : 'Copy'}</span>
+                <Check size={14} className="text-emerald-400 animate-bounce" />
+                <span>You are on the Priority Access List!</span>
+              </motion.div>
+            ) : (
+              <button
+                onClick={handleNotifyMe}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-950/50 transition active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Bell size={13} className={loading ? 'animate-spin' : 'animate-bounce'} />
+                <span>{loading ? 'Securing Spot...' : 'Notify Me Upon Deployment'}</span>
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Summary Grid */}
-        <div className="grid grid-cols-2 gap-3.5">
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs text-center space-y-1">
-            <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-950 mx-auto flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Users size={16} />
-            </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase font-mono">Direct Friends Invited</p>
-            <p className="text-xl font-extrabold text-slate-900 dark:text-white leading-none pt-0.5">{totalInvited}</p>
-          </div>
-
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs text-center space-y-1">
-            <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-950 mx-auto flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-              <Coins size={16} />
-            </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase font-mono">Bonus Cash Earned</p>
-            <p className="text-xl font-extrabold text-slate-900 dark:text-white leading-none pt-0.5">
-              ₦ {totalEarnings.toLocaleString('en-NG')}
+            )}
+            <p className="text-[9px] text-slate-500 mt-2.5">
+              Over 2,400 members have already locked in priority early-access.
             </p>
           </div>
         </div>
 
-        {/* Step-by-Step Guide Instruction Panel */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 shadow-xs space-y-4">
-          <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-            How The Cooperative Network Works
-          </h3>
+        {/* Futuristic Features Sneak Peek Grid */}
+        <div className="space-y-3">
+          <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">
+            Upcoming Capabilities Roadmap
+          </h4>
 
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 border border-purple-200 dark:border-purple-800">
-                1
+          <div className="grid grid-cols-1 gap-3">
+            {/* Feature 1 */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/40 rounded-xl shadow-xs flex gap-3.5 items-start">
+              <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/20 text-indigo-600 dark:text-indigo-400 shrink-0">
+                <Rocket size={16} />
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Invite Your Capital Partners</p>
-                <p className="text-[10px] text-slate-400">Copy the unique invitation link and share with coworkers or investment associates.</p>
+                <h5 className="text-xs font-black text-slate-800 dark:text-slate-200">Joint Capital Pools</h5>
+                <p className="text-[10.5px] text-slate-400 dark:text-slate-500 leading-relaxed">
+                  Combine wallets with friends, family, or colleagues to unlock higher VIP investment brackets with multiplied compound yield rates.
+                </p>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 border border-purple-200 dark:border-purple-800">
-                2
+            {/* Feature 2 */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/40 rounded-xl shadow-xs flex gap-3.5 items-start">
+              <div className="p-2 rounded-lg bg-pink-50 dark:bg-pink-950/30 border border-pink-100 dark:border-pink-900/20 text-pink-600 dark:text-pink-400 shrink-0">
+                <Shield size={16} />
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Partner Registers Account</p>
-                <p className="text-[10px] text-slate-400">When your referral registers, they use your invitation link and your code will get automatically pre-filled.</p>
+                <h5 className="text-xs font-black text-slate-800 dark:text-slate-200">Cooperative Trust Guard</h5>
+                <p className="text-[10.5px] text-slate-400 dark:text-slate-500 leading-relaxed">
+                  Cryptographically secured smart clauses which ensure funds cannot be withdrawn or moved without collective network approval.
+                </p>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-600 dark:text-purple-400 shrink-0 mt-0.5 border border-purple-200 dark:border-purple-800">
-                3
+            {/* Feature 3 */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/40 rounded-xl shadow-xs flex gap-3.5 items-start">
+              <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/20 text-amber-600 dark:text-amber-400 shrink-0">
+                <Gift size={16} />
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Instant Double Credit</p>
-                <p className="text-[10px] text-slate-400">You immediately gain ₦1,200 in your wallet balance, while your registering partner starts with ₦1,000 cash credit.</p>
+                <h5 className="text-xs font-black text-slate-800 dark:text-slate-200">Autonomous Dividend Splitting</h5>
+                <p className="text-[10.5px] text-slate-400 dark:text-slate-500 leading-relaxed">
+                  Compound interest returns are automatically distributed to members' individual bank accounts in precise, custom allocations.
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Live Referral Completion Logs / History */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest font-mono">
-            Network Operations Log
-          </h3>
-
-          {loading ? (
-            <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-slate-800/40 rounded-xl text-center text-xs text-slate-400">
-              Loading payouts...
-            </div>
-          ) : refTransactions.length === 0 ? (
-            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-slate-800/40 rounded-2xl text-center text-xs text-slate-400 py-10 space-y-1">
-              <Sparkles className="mx-auto text-slate-300 dark:text-slate-750 mb-1" size={24} />
-              <p className="font-semibold text-slate-500 dark:text-slate-400">No referrals registered yet</p>
-              <p className="text-[10px] text-slate-400">Share your link and once people register, details populate here.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {refTransactions.map(tx => (
-                <div key={tx.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-200/40 dark:border-slate-800/40 rounded-xl flex items-center justify-between shadow-xs">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{tx.description}</p>
-                    <p className="text-[9px] font-mono text-slate-400 tracking-wider">REF ID: {tx.id.substring(0, 8).toUpperCase()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">+₦{(tx.amount || 0).toLocaleString('en-NG')}</p>
-                    <p className="text-[9px] text-slate-400 uppercase font-mono">{tx.dateString}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Referral Program Hint Panel */}
+        <div className="p-4 bg-purple-50 dark:bg-purple-950/15 border border-purple-200/40 dark:border-purple-900/10 rounded-2xl space-y-2">
+          <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 font-extrabold text-[11px] uppercase tracking-wider font-mono">
+            <Lock size={12} />
+            Referrals are Active!
+          </div>
+          <p className="text-[10.5px] text-purple-600/90 dark:text-purple-300 leading-relaxed">
+            Our dual-bonus recommendation program is fully operational! You can secure <span className="font-bold text-slate-900 dark:text-white">₦1,200.00 cash rewards</span> for sharing, and <span className="font-bold text-slate-900 dark:text-white">₦1,000.00</span> for newcomers. Access invitation claiming instantly inside your <span className="font-bold text-purple-700 dark:text-purple-400 font-mono">MINE</span> tab.
+          </p>
         </div>
 
       </div>
