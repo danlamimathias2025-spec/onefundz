@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { getDocs, doc, deleteDoc, updateDoc, query, collection, where } from 'firebase/firestore';
+import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users as UsersIcon, 
@@ -18,14 +18,14 @@ import {
   XCircle,
   Clock,
   CheckCircle2,
-  Lock
+  Lock,
+  Bell
 } from 'lucide-react';
 import EmptyState from './EmptyState';
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'chats'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'notifications'>('users');
   const [users, setUsers] = useState<any[]>([]);
-  const [supportChats, setSupportChats] = useState<any[]>([]);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   
@@ -35,6 +35,15 @@ export default function AdminPanel() {
   const [selectedDepositForReview, setSelectedDepositForReview] = useState<any | null>(null);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
+
+  // Notifications state
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    message: '',
+    type: 'system',
+    target: 'all'
+  });
+  const [isSendingNotif, setIsSendingNotif] = useState(false);
 
   // Form states for editing users
   const [editForm, setEditForm] = useState({
@@ -78,13 +87,6 @@ export default function AdminPanel() {
       } catch (e) {
         // Do not block rendering, we log to console
       }
-    }
-    
-    try {
-      const chatsQuery = await getDocs(collection(db, 'supportChats'));
-      setSupportChats(chatsQuery.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    } catch (err) {
-      console.warn("Failed to load support chats gracefully:", err);
     }
     
     try {
@@ -150,6 +152,18 @@ export default function AdminPanel() {
     }
   };
 
+  const deleteDeposit = async (id: string) => {
+    if (!window.confirm('Are you certain you want to delete this deposit request? This action cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'deposits', id));
+      setDeposits(deposits.filter(d => d.id !== id));
+      alert('Deposit request deleted.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete deposit request.');
+    }
+  };
+
   const approveWithdrawal = async (id: string) => {
     try {
       await updateDoc(doc(db, 'withdrawals', id), { status: 'approved' });
@@ -187,6 +201,18 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       alert('Failed to reject withdrawal request and refund.');
+    }
+  };
+
+  const deleteWithdrawal = async (id: string) => {
+    if (!window.confirm('Are you certain you want to delete this withdrawal request? This action cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'withdrawals', id));
+      setWithdrawals(withdrawals.filter(w => w.id !== id));
+      alert('Withdrawal request deleted.');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete withdrawal request.');
     }
   };
 
@@ -284,6 +310,27 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSendNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSendingNotif(true);
+    try {
+      await addDoc(collection(db, 'notifications'), {
+        title: notificationForm.title,
+        message: notificationForm.message,
+        type: notificationForm.type,
+        target: notificationForm.target.trim().toLowerCase(),
+        createdAt: serverTimestamp()
+      });
+      alert('Notification sent successfully!');
+      setNotificationForm({ title: '', message: '', type: 'system', target: 'all' });
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      alert('Error sending notification. Please try again.');
+    } finally {
+      setIsSendingNotif(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 bg-slate-50 min-h-screen pb-24" id="admin-panel-root">
       
@@ -293,12 +340,12 @@ export default function AdminPanel() {
             <span className="bg-indigo-600 text-white p-1.5 rounded-lg text-xs font-bold uppercase tracking-widest">Admin</span>
             Control Workspace
           </h2>
-          <p className="text-sm text-slate-500">Manage user accounts, transaction receipts, and live support channels</p>
+          <p className="text-sm text-slate-500">Manage user accounts, transaction receipts, broadcasts, and live support channels</p>
         </div>
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex rounded-xl bg-slate-200/50 p-1 mb-6 border border-slate-200/30 overflow-x-auto max-w-2xl" id="admin-tabs">
+      <div className="flex rounded-xl bg-slate-200/50 p-1 mb-6 border border-slate-200/30 overflow-x-auto max-w-3xl" id="admin-tabs">
         <button
           onClick={() => setActiveTab('users')}
           className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
@@ -330,14 +377,14 @@ export default function AdminPanel() {
           Withdrawals ({withdrawals.length})
         </button>
         <button
-          onClick={() => setActiveTab('chats')}
+          onClick={() => setActiveTab('notifications')}
           className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
-            activeTab === 'chats' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            activeTab === 'notifications' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
-          id="tab-chats-btn"
+          id="tab-notifications-btn"
         >
-          <MessageSquare size={16} />
-          Support Chats ({supportChats.length})
+          <Bell size={16} />
+          Broadcasts
         </button>
       </div>
 
@@ -519,7 +566,7 @@ export default function AdminPanel() {
                           </td>
                           <td className="p-4 text-right">
                             {d.status === 'pending' ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                 <button
                                   onClick={() => approveDeposit(d.id, d.userId, d.amount)}
                                   className="flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm"
@@ -530,15 +577,30 @@ export default function AdminPanel() {
                                 </button>
                                 <button
                                   onClick={() => rejectDeposit(d.id)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                  className="flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm"
                                   id={`reject-deposit-${d.id}`}
                                 >
-                                  <X size={14} />
+                                  <XCircle size={14} />
                                   Reject
+                                </button>
+                                <button
+                                  onClick={() => deleteDeposit(d.id)}
+                                  className="flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-400 font-semibold px-2">Completed</span>
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-xs text-slate-400 font-semibold px-2">Completed</span>
+                                <button
+                                  onClick={() => deleteDeposit(d.id)}
+                                  className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -572,6 +634,7 @@ export default function AdminPanel() {
                         <th className="p-4">Bank Name</th>
                         <th className="p-4">Account Number</th>
                         <th className="p-4">Account Name</th>
+                        <th className="p-4">Timestamp</th>
                         <th className="p-4">Status</th>
                         <th className="p-4 text-right">Actions</th>
                       </tr>
@@ -586,6 +649,9 @@ export default function AdminPanel() {
                           <td className="p-4 text-slate-600 font-semibold">{w.bankName}</td>
                           <td className="p-4 text-slate-600 font-mono">{w.accountNumber}</td>
                           <td className="p-4 text-slate-500">{w.accountName}</td>
+                          <td className="p-4 text-xs text-slate-500 font-mono">
+                            {w.createdAt?.seconds ? new Date(w.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
+                          </td>
                           <td className="p-4">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full ${
                               w.status === 'approved' ? 'bg-green-105 text-green-700 bg-green-100' :
@@ -597,7 +663,7 @@ export default function AdminPanel() {
                           </td>
                           <td className="p-4 text-right">
                             {(w.status || 'pending') === 'pending' ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                 <button
                                   onClick={() => approveWithdrawal(w.id)}
                                   className="flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm"
@@ -607,14 +673,29 @@ export default function AdminPanel() {
                                 </button>
                                 <button
                                   onClick={() => rejectWithdrawal(w.id, w.userId, w.amount)}
+                                  className="flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                >
+                                  <XCircle size={14} />
+                                  Reject & Refund
+                                </button>
+                                <button
+                                  onClick={() => deleteWithdrawal(w.id)}
                                   className="flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
                                 >
-                                  <X size={14} />
-                                  Reject & Refund
+                                  <Trash2 size={14} />
+                                  Delete
                                 </button>
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-400 font-semibold px-2">Completed</span>
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-xs text-slate-400 font-semibold px-2">Completed</span>
+                                <button
+                                  onClick={() => deleteWithdrawal(w.id)}
+                                  className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -626,50 +707,87 @@ export default function AdminPanel() {
             )}
           </motion.div>
         )}
-
-        {activeTab === 'chats' && (
+        {activeTab === 'notifications' && (
           <motion.div
-            key="chats-panel"
+            key="notifications-panel"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="space-y-4"
-            id="panel-chats-section"
+            className="space-y-4 max-w-2xl"
           >
-            {supportChats.length === 0 ? (
-              <EmptyState title="No Support Chats" message="There are currently no active support requests." />
-            ) : (
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" id="chats-table-container">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-xs uppercase font-extrabold tracking-wider">
-                        <th className="p-4">Sender Email / User ID</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Ref</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                      {supportChats.map((chat) => (
-                        <tr key={chat.id} className="hover:bg-slate-50/50 transition duration-150">
-                          <td className="p-4 font-semibold text-slate-900">{chat.userId}</td>
-                          <td className="p-4">
-                            <span className="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                              Active Chat
-                            </span>
-                          </td>
-                          <td className="p-4 text-right text-xs text-slate-400 font-mono select-all">
-                            {chat.id}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                <Bell className="text-indigo-600" />
+                Broadcast Notification
+              </h3>
+              <p className="text-sm text-slate-500 mb-6">Send important updates, system maintenance messages, or targeted alerts to users. Notifications will appear instantly in their dashboard.</p>
+              
+              <form onSubmit={handleSendNotification} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Notification Title</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={notificationForm.title} 
+                      onChange={(e) => setNotificationForm({...notificationForm, title: e.target.value})} 
+                      placeholder="e.g. System Update, Coming Soon"
+                      className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Notification Type</label>
+                    <select 
+                      value={notificationForm.type} 
+                      onChange={(e) => setNotificationForm({...notificationForm, type: e.target.value})} 
+                      className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:border-indigo-500"
+                    >
+                      <option value="system">System / General</option>
+                      <option value="update">Product Update / Coming Soon</option>
+                      <option value="admin">Direct Message from Admin</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-            )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Target Audience</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={notificationForm.target} 
+                    onChange={(e) => setNotificationForm({...notificationForm, target: e.target.value})} 
+                    placeholder="'all' for everyone, or a specific user's email address"
+                    className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:border-indigo-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Leave as "all" to broadcast to every user, or type an exact email address.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Message Content</label>
+                  <textarea 
+                    required
+                    rows={4}
+                    value={notificationForm.message} 
+                    onChange={(e) => setNotificationForm({...notificationForm, message: e.target.value})} 
+                    placeholder="Enter the main body of the notification here..."
+                    className="w-full border border-slate-200 p-2.5 rounded-lg text-sm focus:border-indigo-500 resize-y"
+                  ></textarea>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button 
+                    type="submit"
+                    disabled={isSendingNotif}
+                    className="flex justify-center items-center gap-2 py-3 px-6 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md text-sm transition disabled:opacity-50"
+                  >
+                    {isSendingNotif ? 'Sending Broadcast...' : 'Broadcast Notification'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </motion.div>
         )}
+
       </AnimatePresence>
 
       {/* Edit User Modal Overlay */}

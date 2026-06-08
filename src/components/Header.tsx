@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sun, Moon, MessageCircle } from 'lucide-react';
 import logoSrc from '../assets/images/onefundz_logo_1780826034862.png';
+import NotificationsBell from './NotificationsBell';
 
 interface HeaderProps {
   toggleTheme: () => void;
@@ -38,8 +39,9 @@ export default function Header({ toggleTheme, isDarkMode }: HeaderProps) {
           className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-xs px-3 py-1.5 rounded-full font-bold shadow-sm transition-all"
         >
           <MessageCircle size={15} />
-          <span>Support</span>
+          <span className="hidden sm:inline">Support</span>
         </a>
+        <NotificationsBell />
         <button onClick={toggleTheme} className="text-white hover:text-slate-200 transition-colors p-1.5 rounded-full hover:bg-slate-800">
           {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>

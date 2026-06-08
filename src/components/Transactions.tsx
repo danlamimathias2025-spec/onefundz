@@ -119,7 +119,7 @@ export default function Transactions() {
           id: doc.id,
           ...data,
           timeMs: createdTime,
-          dateString: new Date(createdTime).toLocaleDateString()
+          dateString: new Date(createdTime).toLocaleString()
         };
       }));
     }, (err) => {
@@ -138,7 +138,7 @@ export default function Transactions() {
           id: doc.id,
           ...data,
           timeMs: createdTime,
-          dateString: new Date(createdTime).toLocaleDateString()
+          dateString: new Date(createdTime).toLocaleString()
         };
       }));
     }, (err) => {
@@ -157,7 +157,7 @@ export default function Transactions() {
           id: doc.id,
           ...data,
           timeMs: createdTime,
-          dateString: data.date || new Date(createdTime).toLocaleDateString()
+          dateString: data.date ? `${data.date} ${new Date(createdTime).toLocaleTimeString()}` : new Date(createdTime).toLocaleString()
         };
       }));
     }, (err) => {
