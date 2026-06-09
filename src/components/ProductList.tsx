@@ -4,16 +4,16 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 import { useToast } from '../lib/toast';
 
 const products = [
-  { tier: 'VIP 1', price: '4,000', days: 60, daily: 800, total: 48000 },
-  { tier: 'VIP 2', price: '8,000', days: 60, daily: 1600, total: 96000 },
-  { tier: 'VIP 3', price: '20,000', days: 60, daily: 4200, total: 252000 },
-  { tier: 'VIP 4', price: '30,000', days: 60, daily: 6000, total: 360000 },
-  { tier: 'VIP 5', price: '40,000', days: 60, daily: 10000, total: 600000 },
-  { tier: 'VIP 6', price: '60,000', days: 60, daily: 15000, total: 900000 },
-  { tier: 'VIP 7', price: '80,000', days: 60, daily: 22000, total: 1320000 },
-  { tier: 'VIP 8', price: '100,000', days: 60, daily: 30000, total: 1800000 },
-  { tier: 'VIP 9', price: '150,000', days: 60, daily: 45000, total: 2700000 },
-  { tier: 'VIP 10', price: '200,000', days: 60, daily: 65000, total: 3900000 },
+  { tier: 'VIP 1', price: '4,000', days: 60, daily: 400, total: 24000 },
+  { tier: 'VIP 2', price: '8,000', days: 60, daily: 800, total: 48000 },
+  { tier: 'VIP 3', price: '20,000', days: 60, daily: 2100, total: 126000 },
+  { tier: 'VIP 4', price: '30,000', days: 60, daily: 3000, total: 180000 },
+  { tier: 'VIP 5', price: '40,000', days: 60, daily: 5000, total: 300000 },
+  { tier: 'VIP 6', price: '60,000', days: 60, daily: 7500, total: 450000 },
+  { tier: 'VIP 7', price: '80,000', days: 60, daily: 11000, total: 660000 },
+  { tier: 'VIP 8', price: '100,000', days: 60, daily: 15000, total: 900000 },
+  { tier: 'VIP 9', price: '150,000', days: 60, daily: 22500, total: 1350000 },
+  { tier: 'VIP 10', price: '200,000', days: 60, daily: 32500, total: 1950000 },
 ];
 
 interface ProductListProps {
@@ -62,6 +62,7 @@ export default function ProductList({ userBalance }: ProductListProps) {
         dailyPayout: product.daily,
         totalReturn: product.total,
         nextPayoutDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        lastSettledAt: serverTimestamp(),
         status: 'active',
         createdAt: serverTimestamp()
       });

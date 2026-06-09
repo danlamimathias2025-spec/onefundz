@@ -36,7 +36,7 @@ const banks = [
   "Titan Trust Bank", "Globus Bank"
 ];
 
-export default function ProfileSettings({ onStartTour }: { onStartTour?: () => void }) {
+export default function ProfileSettings({ onStartTour, isAdmin }: { onStartTour?: () => void, isAdmin?: boolean }) {
   const [activeView, setActiveView] = useState<'profile' | 'deposit' | 'withdraw'>('profile');
   const [userData, setUserData] = useState({
     userName: '',
@@ -53,6 +53,9 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
     referredByCode: null as string | null
   });
   const [loading, setLoading] = useState(true);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [newBalanceAmount, setNewBalanceAmount] = useState('');
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
   
   // PWA Support States
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -97,6 +100,30 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
     }
   };
   
+  const handleSaveAdminBalance = async () => {
+    if (!auth.currentUser) return;
+    setIsSavingBalance(true);
+    try {
+      const parsedAmount = parseFloat(newBalanceAmount);
+      if (isNaN(parsedAmount) || parsedAmount < 0) {
+        alert("Please enter a valid positive number for balance.");
+        setIsSavingBalance(false);
+        return;
+      }
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        balance: parsedAmount
+      });
+      alert('Balance updated successfully!');
+      setIsEditingBalance(false);
+      setNewBalanceAmount('');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update balance.');
+    } finally {
+      setIsSavingBalance(false);
+    }
+  };
+
   // Accordions inside Profile Settings
   const [isBankInfoOpen, setIsBankInfoOpen] = useState(false);
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
@@ -537,9 +564,50 @@ export default function ProfileSettings({ onStartTour }: { onStartTour?: () => v
               <p className="text-[11px] text-purple-200 opacity-80 font-mono mb-4">{userData.email}</p>
 
               {/* Real-time Dynamic Portfolio Cash balance indicator */}
-              <div className="bg-purple-950/50 rounded-xl p-4 border border-purple-800/40 w-full text-center mt-2 shadow-inner">
+              <div className="bg-purple-950/50 rounded-xl p-4 border border-purple-800/40 w-full text-center mt-2 shadow-inner relative group">
                 <span className="text-[9px] font-bold tracking-wider text-purple-300 uppercase block mb-1">Available Portfolio Balance</span>
-                <p className="text-xl font-extrabold text-white">₦ {userData.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xl font-extrabold text-white mb-2">₦ {userData.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                {isAdmin && (
+                  <div className="mt-3 pt-3 border-t border-purple-900/50">
+                    {!isEditingBalance ? (
+                      <button
+                        onClick={() => {
+                          setNewBalanceAmount(userData.balance.toString());
+                          setIsEditingBalance(true);
+                        }}
+                        className="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold px-4 py-2 rounded-lg border border-amber-500/50 shadow-md transition w-full"
+                      >
+                        Override My Balance (Admin)
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newBalanceAmount}
+                          onChange={(e) => setNewBalanceAmount(e.target.value)}
+                          placeholder="New Balance"
+                          className="w-full bg-purple-900/30 border border-purple-700/50 rounded-lg p-2 text-white text-xs text-center focus:border-purple-400 font-mono"
+                        />
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => setIsEditingBalance(false)}
+                            className="text-[10px] px-3 py-1.5 rounded-lg text-purple-300 hover:text-white transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveAdminBalance}
+                            disabled={isSavingBalance}
+                            className="text-[10px] bg-amber-500 hover:bg-amber-600 text-amber-950 font-bold px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                          >
+                            {isSavingBalance ? 'Saving...' : 'Save New Balance'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

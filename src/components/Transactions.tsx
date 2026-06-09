@@ -396,10 +396,10 @@ export default function Transactions() {
                     <span className="font-mono font-bold text-sm text-slate-950 dark:text-slate-50">₦ {inv.amount.toLocaleString()}</span>
                   </div>
                   <div className="grid grid-cols-2 text-[10px] text-slate-500 gap-y-1 border-t border-slate-100 dark:border-slate-800/60 pt-2">
-                    <div>Remaining Time: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.remainingDays} days</span></div>
-                    <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Daily</span></div>
+                    <div>Remaining Time: <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.ceil(inv.remainingDays)} days</span></div>
+                    <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Continuous</span></div>
                     <div>Daily Yield: <span className="font-bold text-green-600 dark:text-green-400">₦ {inv.dailyPayout?.toLocaleString() || '0'}</span></div>
-                    <div className="text-right">Next Payout: <span className="font-semibold text-slate-700 dark:text-slate-300">{inv.nextPayoutDate}</span></div>
+                    <div className="text-right">Next Payout: <span className="font-semibold text-slate-700 dark:text-slate-300">Live</span></div>
                   </div>
                 </motion.div>
               ))}

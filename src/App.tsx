@@ -26,7 +26,7 @@ import GuidedTour from './components/GuidedTour';
 import EditProfileModal from './components/EditProfileModal';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, query, collection, where, getDoc, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, where, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -102,7 +102,73 @@ export default function App() {
     };
   }, [user]);
 
-  // 3. Auto-heal and sync referral code details to the global index
+  // 3. Process automatic payouts based on Elapsed Time in realInvestments
+  useEffect(() => {
+    if (!user || realInvestments.length === 0) return;
+
+    const performCrediting = () => {
+      let totalNewBalance = 0;
+      const batchUpdates: Array<{ ref: any; data: any }> = [];
+
+      realInvestments.forEach(inv => {
+        if (inv.status !== 'active') return;
+
+        const timestamp = inv.lastSettledAt?.seconds || inv.createdAt?.seconds;
+        if (!timestamp) return;
+
+        const lastSettleMs = timestamp * 1000;
+        const nowMs = Date.now();
+        const diffMs = nowMs - lastSettleMs;
+        const minutesPassed = Math.floor(diffMs / (60 * 1000));
+
+        if (minutesPassed > 0) {
+          const daysPassedFraction = minutesPassed / (24 * 60);
+          // Compute how many actual fractional days we can payout (cap by remainingDays)
+          const actualDaysToSettle = Math.min(daysPassedFraction, inv.remainingDays || 0);
+
+          if (actualDaysToSettle > 0) {
+            totalNewBalance += (inv.dailyPayout * actualDaysToSettle);
+            const newRemaining = inv.remainingDays - actualDaysToSettle;
+            
+            batchUpdates.push({
+              ref: doc(db, 'investments', inv.id),
+              data: {
+                remainingDays: newRemaining,
+                lastSettledAt: new Date(lastSettleMs + minutesPassed * (60 * 1000)),
+                status: newRemaining <= 0 ? 'completed' : 'active'
+              }
+            });
+          }
+        }
+      });
+
+      if (totalNewBalance > 0) {
+        const applyUpdates = async () => {
+          try {
+            // Increment the user's primary wallet balance
+            await updateDoc(doc(db, 'users', user.uid), {
+              balance: increment(totalNewBalance)
+            });
+            // Update the localized investment records tracking
+            for (const update of batchUpdates) {
+              await updateDoc(update.ref, update.data);
+            }
+          } catch (error) {
+            console.error("Auto-crediting error:", error);
+          }
+        };
+        applyUpdates();
+      }
+    };
+    
+    performCrediting();
+    
+    // Check every 30 seconds to support live compounding effects while app is open
+    const intervalTimer = setInterval(performCrediting, 30000);
+    return () => clearInterval(intervalTimer);
+  }, [realInvestments, user]);
+
+  // 4. Auto-heal and sync referral code details to the global index
   useEffect(() => {
     if (!user || !userData) return;
 
@@ -210,7 +276,7 @@ export default function App() {
             <>
               <AssetBalanceCard balance={balanceVal} />
               <DailyGrowthIndicator />
-              <PerformanceChart />
+              <PerformanceChart investments={realInvestments} />
               
               <FinanceNews />
               
@@ -240,7 +306,7 @@ export default function App() {
       
       {activeTab === 'Transactions' && <Transactions />}
       {activeTab === 'Coop' && <CoopReferral userData={userData} />}
-      {activeTab === 'Mine' && <ProfileSettings onStartTour={() => { setActiveTab('Home'); setForceStartTour(true); }} />}
+      {activeTab === 'Mine' && <ProfileSettings onStartTour={() => { setActiveTab('Home'); setForceStartTour(true); }} isAdmin={isAdmin} />}
       {activeTab === 'Admin' && isAdmin && <AdminPanel />}
       
       <AnimatePresence>
