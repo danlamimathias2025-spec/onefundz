@@ -466,10 +466,9 @@ export default function ProfileSettings({ onStartTour, isAdmin }: { onStartTour?
     setIsWithdrawalSubmitting(true);
     try {
       // 1. Deduct immediately from database profile balance
-      const newBalance = (userData.balance || 0) - amt;
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
-        balance: newBalance
+        balance: increment(-amt)
       });
 
       // 2. Log withdrawal record

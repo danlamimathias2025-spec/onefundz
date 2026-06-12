@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users as UsersIcon, 
@@ -119,8 +119,7 @@ export default function AdminPanel() {
       const userSnap = await getDocs(q);
       if (!userSnap.empty) {
           const userDoc = userSnap.docs[0];
-          const currentBalance = userDoc.data().balance || 0;
-          await updateDoc(doc(db, 'users', userDoc.id), { balance: currentBalance + amount });
+          await updateDoc(doc(db, 'users', userDoc.id), { balance: increment(amount) });
           
           setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
           // Sync local users list too
@@ -186,8 +185,7 @@ export default function AdminPanel() {
       const userSnap = await getDocs(q);
       if (!userSnap.empty) {
           const userDoc = userSnap.docs[0];
-          const currentBalance = userDoc.data().balance || 0;
-          await updateDoc(doc(db, 'users', userDoc.id), { balance: currentBalance + amount });
+          await updateDoc(doc(db, 'users', userDoc.id), { balance: increment(amount) });
           
           setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: 'rejected' } : w));
           // Sync local users list too if user is listed

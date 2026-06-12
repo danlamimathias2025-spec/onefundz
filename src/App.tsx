@@ -119,12 +119,11 @@ export default function App() {
         const lastSettleMs = timestamp * 1000;
         const nowMs = Date.now();
         const diffMs = nowMs - lastSettleMs;
-        const minutesPassed = Math.floor(diffMs / (60 * 1000));
+        const daysPassed = Math.floor(diffMs / (24 * 60 * 60 * 1000));
 
-        if (minutesPassed > 0) {
-          const daysPassedFraction = minutesPassed / (24 * 60);
-          // Compute how many actual fractional days we can payout (cap by remainingDays)
-          const actualDaysToSettle = Math.min(daysPassedFraction, inv.remainingDays || 0);
+        if (daysPassed > 0) {
+          // Compute how many actual days we can payout (cap by remainingDays)
+          const actualDaysToSettle = Math.min(daysPassed, Math.ceil(inv.remainingDays || 0));
 
           if (actualDaysToSettle > 0) {
             totalNewBalance += (inv.dailyPayout * actualDaysToSettle);
@@ -133,8 +132,8 @@ export default function App() {
             batchUpdates.push({
               ref: doc(db, 'investments', inv.id),
               data: {
-                remainingDays: newRemaining,
-                lastSettledAt: new Date(lastSettleMs + minutesPassed * (60 * 1000)),
+                remainingDays: Math.max(0, newRemaining),
+                lastSettledAt: new Date(lastSettleMs + actualDaysToSettle * (24 * 60 * 60 * 1000)),
                 status: newRemaining <= 0 ? 'completed' : 'active'
               }
             });
@@ -234,6 +233,10 @@ export default function App() {
   const isAdmin = user.email?.toLowerCase() === 'danlamimathias2025@gmail.com';
   const balanceVal = userData?.balance || 0;
 
+  const profileFields = ['userName', 'fullName', 'phoneNumber', 'bankName', 'accountName', 'accountNumber', 'avatarUrl'];
+  const completedFields = profileFields.filter(f => userData?.[f] && userData[f].toString().trim() !== '').length;
+  const profileCompletion = Math.round((completedFields / profileFields.length) * 100);
+
   return (
     <div className="bg-white dark:bg-slate-950 min-h-screen font-sans pb-20 text-slate-900 dark:text-slate-100">
       {activeTab === 'Home' && (
@@ -243,26 +246,40 @@ export default function App() {
           <div 
             id="dashboard-user-banner" 
             onClick={() => setIsEditProfileOpen(true)}
-            className="p-4 flex items-center space-x-2 border-b border-slate-100 dark:border-slate-900/60 bg-slate-50/50 dark:bg-slate-900/10 hover:bg-slate-100/70 dark:hover:bg-slate-900/30 cursor-pointer transition-colors"
+            className="p-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-900/60 bg-slate-50/50 dark:bg-slate-900/10 hover:bg-slate-100/70 dark:hover:bg-slate-900/30 cursor-pointer transition-colors"
           >
-            {userData?.avatarUrl ? (
-              <img 
-                src={userData.avatarUrl} 
-                alt={userData?.userName || 'Profile'} 
-                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-850"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-300 capitalize">
-                {userData?.userName ? userData.userName.charAt(0) : user.email?.charAt(0)}
+            <div className="flex items-center space-x-2">
+              {userData?.avatarUrl ? (
+                <img 
+                  src={userData.avatarUrl} 
+                  alt={userData?.userName || 'Profile'} 
+                  className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-850"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-300 capitalize flex-shrink-0">
+                  {userData?.userName ? userData.userName.charAt(0) : user.email?.charAt(0)}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-900 dark:text-white text-xs leading-none flex items-center gap-1.5">
+                  Welcome, {userData?.userName || 'Member'}
+                  <span className="text-[9px] text-indigo-550 dark:text-indigo-400 font-medium tracking-normal hover:underline">(Edit)</span>
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">{user.email}</span>
               </div>
-            )}
-            <div className="flex flex-col">
-              <span className="font-bold text-slate-900 dark:text-white text-xs leading-none flex items-center gap-1.5">
-                Welcome, {userData?.userName || 'Member'}
-                <span className="text-[9px] text-indigo-550 dark:text-indigo-400 font-medium tracking-normal hover:underline">(Edit)</span>
+            </div>
+            
+            <div className="flex flex-col items-end whitespace-nowrap ml-2">
+              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Profile {profileCompletion}%
               </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">{user.email}</span>
+              <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex-shrink-0">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${profileCompletion === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                  style={{ width: `${profileCompletion}%` }}
+                />
+              </div>
             </div>
           </div>
 

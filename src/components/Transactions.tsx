@@ -12,7 +12,8 @@ import {
   serverTimestamp, 
   query, 
   where, 
-  updateDoc 
+  updateDoc,
+  increment
 } from 'firebase/firestore';
 
 interface CombinedLedgerItem {
@@ -216,7 +217,7 @@ export default function Transactions() {
       // 1. Deduct immediately from main profile balance
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
-        balance: currentBalance - amount
+        balance: increment(-amount)
       });
 
       // 2. Save active withdrawal request

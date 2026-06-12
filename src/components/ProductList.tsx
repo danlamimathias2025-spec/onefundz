@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import { useToast } from '../lib/toast';
 
 const products = [
@@ -50,7 +50,7 @@ export default function ProductList({ userBalance }: ProductListProps) {
       // 1. Deduct balance from user profile document
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {
-        balance: userBalance - price
+        balance: increment(-price)
       });
 
       // 2. Add an active investment document
