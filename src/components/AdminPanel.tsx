@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp, increment } from 'firebase/firestore';
+import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp, increment, setDoc, orderBy } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users as UsersIcon, 
@@ -19,15 +19,33 @@ import {
   Clock,
   CheckCircle2,
   Lock,
-  Bell
+  Bell,
+  ClipboardList
 } from 'lucide-react';
 import EmptyState from './EmptyState';
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'notifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'notifications' | 'audit'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
+  const logAction = async (action: string, targetUserId: string, targetUserEmail: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO') => {
+    try {
+      await addDoc(collection(db, 'admin_audit_logs'), {
+        adminEmail: auth.currentUser?.email || 'Unknown Admin',
+        action,
+        targetUserId,
+        targetUserEmail,
+        details,
+        severity,
+        timestamp: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('Failed to write audit log:', err);
+    }
+  };
   
   // Modal states
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -102,6 +120,13 @@ export default function AdminPanel() {
     } catch (err) {
       console.warn("Failed to load withdrawals gracefully:", err);
     }
+
+    try {
+      const auditQuery = await getDocs(query(collection(db, 'admin_audit_logs'), orderBy('timestamp', 'desc')));
+      setAuditLogs(auditQuery.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.warn("Failed to load audit logs gracefully:", err);
+    }
   };
 
   useEffect(() => {
@@ -125,6 +150,8 @@ export default function AdminPanel() {
           // Sync local users list too
           setUsers(users.map(u => u.email?.toLowerCase() === targetEmail ? { ...u, balance: (u.balance || 0) + amount } : u));
           
+          await logAction('APPROVE_DEPOSIT', userDoc.id, targetEmail, `Admin approved deposit of ₦${amount.toLocaleString('en-NG')}`, 'INFO');
+          
           alert('Deposit approved successfully. User balance has been credited.');
       } else {
           setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
@@ -140,9 +167,13 @@ export default function AdminPanel() {
 
   const rejectDeposit = async (id: string) => {
     try {
+      const targetEmail = deposits.find(d => d.id === id)?.email || 'unknown';
       // Update deposit status to rejected - balance is not modified
       await updateDoc(doc(db, 'deposits', id), { status: 'rejected' });
       setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'rejected' } : d));
+      
+      await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit of ₦${deposits.find(d => d.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'WARNING');
+      
       alert('Deposit request has been rejected.');
       setSelectedDepositForReview(null);
     } catch (err) {
@@ -165,8 +196,12 @@ export default function AdminPanel() {
 
   const approveWithdrawal = async (id: string) => {
     try {
+      const targetEmail = withdrawals.find(w => w.id === id)?.email || 'unknown';
       await updateDoc(doc(db, 'withdrawals', id), { status: 'approved' });
       setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: 'approved' } : w));
+      
+      await logAction('APPROVE_WITHDRAWAL', id, targetEmail, `Admin approved withdrawal of ₦${withdrawals.find(w => w.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'INFO');
+      
       alert('Withdrawal request approved successfully.');
     } catch (err) {
       console.error(err);
@@ -190,6 +225,8 @@ export default function AdminPanel() {
           setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: 'rejected' } : w));
           // Sync local users list too if user is listed
           setUsers(users.map(u => u.email?.toLowerCase() === targetEmail ? { ...u, balance: (u.balance || 0) + amount } : u));
+
+          await logAction('REJECT_WITHDRAWAL', userDoc.id, targetEmail, `Admin rejected withdrawal of ₦${amount.toLocaleString('en-NG')} (refunded to balance)`, 'WARNING');
           
           alert(`Withdrawal request rejected. Fund amount of ₦ ${amount.toLocaleString('en-NG')} has been refunded to the user's balance.`);
       } else {
@@ -219,8 +256,10 @@ export default function AdminPanel() {
       return;
     }
     try {
+      const targetEmail = users.find(u => u.id === id)?.email || 'unknown';
       await deleteDoc(doc(db, 'users', id));
       setUsers(users.filter(user => user.id !== id));
+      await logAction('DELETE_USER', id, targetEmail, `Admin deleted user heavily: ${targetEmail}`, 'CRITICAL');
       alert('User deleted.');
     } catch (err) {
       console.error(err);
@@ -244,6 +283,7 @@ export default function AdminPanel() {
         role: 'admin',
         createdAt: serverTimestamp()
       }, { merge: true });
+      await logAction('INITIALIZE_ADMIN', auth.currentUser.uid, adminEmail, `Master admin account initialized by ${auth.currentUser.email}`, 'WARNING');
       alert("Admin account initialized successfully! You can now edit it in the users list.");
       await fetchData();
     } catch (err) {
@@ -282,6 +322,9 @@ export default function AdminPanel() {
 
     alert(`Purge completed successfully!\n\nDeleted: ${successCount} user accounts.\nFailed: ${failCount} accounts.`);
     setIsPurging(false);
+    
+    await logAction('PURGE_USERS', 'all_non_admin', 'multiple', `System purge executed. Successfully deleted: ${successCount}, Failed: ${failCount}`, 'CRITICAL');
+    
     await fetchData();
   };
 
@@ -322,6 +365,9 @@ export default function AdminPanel() {
       
       // Update local state
       setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...updatedFields } : u));
+      
+      await logAction('UPDATE_USER', selectedUser.id, selectedUser.email, `Admin updated user details/balance. New balance: ₦${parsedBalance.toLocaleString('en-NG')}`, 'WARNING');
+      
       alert('User account details updated successfully!');
       setSelectedUser(null);
     } catch (err) {
@@ -407,6 +453,16 @@ export default function AdminPanel() {
         >
           <Bell size={16} />
           Broadcasts
+        </button>
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+            activeTab === 'audit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+          }`}
+          id="tab-audit-btn"
+        >
+          <ClipboardList size={16} />
+          Audit Logs ({auditLogs.length})
         </button>
       </div>
 
@@ -828,6 +884,66 @@ export default function AdminPanel() {
                 </div>
               </form>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'audit' && (
+          <motion.div
+            key="audit-panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+            id="panel-audit-section"
+          >
+            {auditLogs.length === 0 ? (
+              <EmptyState title="No Audit Logs" message="There are no system actions recorded yet." />
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" id="audit-table-container">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-xs uppercase font-extrabold tracking-wider">
+                        <th className="p-4">Action</th>
+                        <th className="p-4">Admin Email</th>
+                        <th className="p-4">Target Details</th>
+                        <th className="p-4">Date & Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                      {auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition duration-150">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                log.severity === 'CRITICAL' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                log.severity === 'WARNING' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                              }`}>
+                                {log.severity || 'INFO'}
+                              </span>
+                              <span className="font-bold text-slate-800 text-xs">{log.action}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span className="font-mono text-slate-500 text-xs">{log.adminEmail}</span>
+                          </td>
+                          <td className="p-4">
+                            <div className="text-slate-900 font-medium">{log.details}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">Target ID: {log.targetUserId || 'N/A'}</div>
+                          </td>
+                          <td className="p-4 text-xs text-slate-500 whitespace-nowrap font-medium">
+                            {log.timestamp?.seconds 
+                              ? new Date(log.timestamp.seconds * 1000).toLocaleString('en-GB') 
+                              : 'Pending...'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
