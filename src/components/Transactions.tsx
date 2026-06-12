@@ -632,14 +632,14 @@ export default function Transactions() {
       <AnimatePresence>
         {showWithdrawCheckOverlay && (
           <div
-            className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full"
             id="withdrawal-transactions-overlay"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl w-full max-w-sm space-y-5 text-slate-900 dark:text-slate-100 shadow-2xl animate-fade-in"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+              className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 border-x border-slate-200 dark:border-slate-800 min-h-screen flex flex-col items-center justify-center p-6 space-y-6 text-slate-900 dark:text-slate-100 shadow-2xl"
             >
               <div className="text-center space-y-1">
                 <h3 className="font-extrabold text-sm">Confirm Withdrawal Claim</h3>

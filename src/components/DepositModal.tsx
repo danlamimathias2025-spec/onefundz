@@ -106,35 +106,32 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
 
   return (
     <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        initial={{ opacity: 0, y: 30 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        exit={{ opacity: 0, y: 30 }}
+        className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full"
         id="deposit-modal-backdrop"
     >
-      <motion.div 
-        initial={{ scale: 0.95, y: 15 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 15 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100"
+      <div 
+        className="w-full max-w-lg mx-auto bg-slate-50 dark:bg-slate-950 min-h-screen flex flex-col"
         id="deposit-modal-container"
       >
         {/* Header */}
-        <div className="bg-slate-900 px-6 py-4 text-white flex justify-between items-center" id="deposit-modal-header">
+        <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 text-white flex justify-between items-center sticky top-0 z-10" id="deposit-modal-header">
           <div>
             <h2 className="text-lg font-bold">Fund Your Account</h2>
             <p className="text-xs text-slate-400">Direct wallet replenishment</p>
           </div>
           <button 
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition text-sm p-1 rounded-lg hover:bg-slate-800"
+            className="text-slate-400 hover:text-white transition text-sm p-2 rounded-lg hover:bg-slate-800 focus:outline-none"
             id="deposit-close-btn"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto" id="deposit-modal-body">
+        <div className="p-6 space-y-6 flex-1 pb-24" id="deposit-modal-body">
           {/* Step 1: Paystack Redirect */}
           <div className="space-y-2">
             <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider block">Step 1: Payment Link</span>
@@ -308,7 +305,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
             )}
           </button>
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

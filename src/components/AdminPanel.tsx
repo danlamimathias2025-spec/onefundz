@@ -952,29 +952,29 @@ export default function AdminPanel() {
       {/* Edit User Modal Overlay */}
       <AnimatePresence>
         {selectedUser && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" id="edit-user-modal">
+          <div className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full" id="edit-user-modal">
             <motion.div 
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 max-h-[90vh] flex flex-col"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+              className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 min-h-screen flex flex-col"
             >
               {/* Modal Header */}
-              <div className="bg-slate-900 px-6 py-4 text-white flex justify-between items-center">
+              <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 text-white flex justify-between items-center sticky top-0 z-10">
                 <div>
                   <h3 className="text-base font-bold">Edit Registered Member Account</h3>
                   <p className="text-xs text-slate-400">UID: <span className="font-mono">{selectedUser.id}</span></p>
                 </div>
                 <button 
                   onClick={() => setSelectedUser(null)} 
-                  className="text-slate-400 hover:text-white transition rounded-lg hover:bg-slate-800 p-1"
+                  className="text-slate-400 hover:text-white transition rounded-lg hover:bg-slate-800 p-2 focus:outline-none"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               {/* Modal Form Body */}
-              <form onSubmit={handleSaveUserChanges} className="flex-1 overflow-y-auto p-6 space-y-5">
+              <form onSubmit={handleSaveUserChanges} className="p-6 space-y-6 flex-1 pb-24">
                 {/* Section 1: Identities */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold text-indigo-600 uppercase tracking-wider flex items-center gap-1 border-b pb-1">

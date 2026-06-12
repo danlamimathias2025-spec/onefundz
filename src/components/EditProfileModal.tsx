@@ -152,28 +152,25 @@ export default function EditProfileModal({ onClose, currentUserName, currentAvat
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 30 }}
+      className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full"
       id="edit-profile-backdrop"
     >
-      <motion.div
-        initial={{ scale: 0.95, y: 15 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 15 }}
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800/80"
+      <div
+        className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 min-h-screen flex flex-col"
         id="edit-profile-container"
       >
         {/* Header */}
-        <div className="bg-slate-900 px-6 py-4 text-white flex justify-between items-center" id="edit-profile-header">
+        <div className="bg-slate-900 px-6 py-4 text-white flex justify-between items-center sticky top-0 z-10" id="edit-profile-header">
           <div>
             <h2 className="text-base font-bold">Edit Profile Detail</h2>
             <p className="text-xs text-slate-400">Personalize your OneFundz dashboard identity</p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition text-xs p-1 rounded-lg hover:bg-slate-800"
+            className="text-slate-400 hover:text-white transition text-xs p-2 rounded-lg hover:bg-slate-800 focus:outline-none"
             id="edit-profile-close-btn"
           >
             <X size={16} />
@@ -181,7 +178,7 @@ export default function EditProfileModal({ onClose, currentUserName, currentAvat
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto" id="edit-profile-body">
+        <div className="p-6 space-y-6 flex-1 pb-24" id="edit-profile-body">
           {/* Avatar Preview Section */}
           <div className="flex flex-col items-center justify-center py-2 space-y-3" id="edit-profile-preview-section">
             <div className="relative group">
@@ -354,7 +351,7 @@ export default function EditProfileModal({ onClose, currentUserName, currentAvat
             )}
           </button>
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

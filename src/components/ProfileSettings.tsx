@@ -1240,17 +1240,14 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
       <AnimatePresence>
         {showWithdrawCheckOverlay && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/75 z-55 flex items-center justify-center p-4 backdrop-blur-sm"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full"
             id="withdrawal-inapp-confirmation-overlay"
           >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-purple-950 border border-purple-800/70 p-6 rounded-2xl w-full max-w-sm space-y-5 text-white shadow-2xl relative overflow-hidden"
+            <div
+              className="w-full max-w-lg mx-auto bg-purple-950 border-x border-purple-800/50 min-h-screen flex flex-col items-center justify-center p-6 space-y-6 text-white"
               id="withdrawal-inapp-confirmation-container"
             >
               <div className="text-center space-y-1">
@@ -1316,23 +1313,20 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
                   )}
                 </button>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
 
         {showLogoutConfirm && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/75 z-55 flex items-center justify-center p-4 backdrop-blur-sm"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed inset-0 bg-slate-50 dark:bg-slate-950 z-[100] overflow-y-auto w-full h-full"
             id="logout-inapp-confirmation-overlay"
           >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-slate-900 border border-slate-800/80 p-6 rounded-2xl w-full max-w-sm space-y-5 text-white shadow-2xl relative overflow-hidden"
+            <div
+              className="w-full max-w-lg mx-auto bg-slate-900 border-x border-slate-800/80 min-h-screen flex flex-col items-center justify-center p-6 space-y-6 text-white"
               id="logout-inapp-confirmation-container"
             >
               <div className="text-center space-y-1">
@@ -1371,7 +1365,7 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
                   Confirm Logout
                 </button>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
