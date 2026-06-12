@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { getDocs, doc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp, increment, setDoc, orderBy } from 'firebase/firestore';
+import { getDocs, doc, getDoc, deleteDoc, updateDoc, query, collection, where, addDoc, serverTimestamp, increment, setDoc, orderBy } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users as UsersIcon, 
@@ -30,6 +30,7 @@ export default function AdminPanel() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [processingIds, setProcessingIds] = useState<Record<string, boolean>>({});
 
   const logAction = async (action: string, targetUserId: string, targetUserEmail: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO') => {
     try {
@@ -134,12 +135,29 @@ export default function AdminPanel() {
   }, []);
 
   const approveDeposit = async (id: string, userId: string, amount: number) => {
+    if (processingIds[id]) return;
+    setProcessingIds(prev => ({ ...prev, [id]: true }));
     try {
+      // 1. Fetch current deposit status to prevent multiple approvals
+      const depositRef = doc(db, 'deposits', id);
+      const depositSnap = await getDoc(depositRef);
+      if (!depositSnap.exists()) {
+        alert('Deposit request not found.');
+        return;
+      }
+      const depositData = depositSnap.data();
+      if (depositData && depositData.status !== 'pending' && depositData.status !== undefined && depositData.status !== '') {
+        alert(`This deposit has already been processed (current status: ${depositData.status}).`);
+        // update local state just in case
+        setDeposits(deposits.map(d => d.id === id ? { ...d, status: depositData.status } : d));
+        return;
+      }
+
       const targetEmail = (userId || '').trim().toLowerCase();
-      // 1. Update deposit status to approved
-      await updateDoc(doc(db, 'deposits', id), { status: 'approved' });
+      // 2. Update deposit status to approved
+      await updateDoc(depositRef, { status: 'approved' });
       
-      // 2. Increase user balance
+      // 3. Increase user balance
       const q = query(collection(db, 'users'), where('email', '==', targetEmail));
       const userSnap = await getDocs(q);
       if (!userSnap.empty) {
@@ -162,14 +180,35 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       alert('Failed to approve deposit.');
+    } finally {
+      setProcessingIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
   const rejectDeposit = async (id: string) => {
+    if (processingIds[id]) return;
+    setProcessingIds(prev => ({ ...prev, [id]: true }));
     try {
+      const depositRef = doc(db, 'deposits', id);
+      const depositSnap = await getDoc(depositRef);
+      if (!depositSnap.exists()) {
+        alert('Deposit request not found.');
+        return;
+      }
+      const depositData = depositSnap.data();
+      if (depositData && depositData.status !== 'pending' && depositData.status !== undefined && depositData.status !== '') {
+        alert(`This deposit has already been processed (current status: ${depositData.status}).`);
+        setDeposits(deposits.map(d => d.id === id ? { ...d, status: depositData.status } : d));
+        return;
+      }
+
       const targetEmail = deposits.find(d => d.id === id)?.email || 'unknown';
       // Update deposit status to rejected - balance is not modified
-      await updateDoc(doc(db, 'deposits', id), { status: 'rejected' });
+      await updateDoc(depositRef, { status: 'rejected' });
       setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'rejected' } : d));
       
       await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit of ₦${deposits.find(d => d.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'WARNING');
@@ -179,6 +218,12 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       alert('Failed to reject deposit.');
+    } finally {
+      setProcessingIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -195,9 +240,24 @@ export default function AdminPanel() {
   };
 
   const approveWithdrawal = async (id: string) => {
+    if (processingIds[id]) return;
+    setProcessingIds(prev => ({ ...prev, [id]: true }));
     try {
+      const withdrawalRef = doc(db, 'withdrawals', id);
+      const withdrawalSnap = await getDoc(withdrawalRef);
+      if (!withdrawalSnap.exists()) {
+        alert('Withdrawal request not found.');
+        return;
+      }
+      const withdrawalData = withdrawalSnap.data();
+      if (withdrawalData && withdrawalData.status !== 'pending' && withdrawalData.status !== undefined && withdrawalData.status !== '') {
+        alert(`This withdrawal is already processed (current status: ${withdrawalData.status}).`);
+        setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: withdrawalData.status } : w));
+        return;
+      }
+
       const targetEmail = withdrawals.find(w => w.id === id)?.email || 'unknown';
-      await updateDoc(doc(db, 'withdrawals', id), { status: 'approved' });
+      await updateDoc(withdrawalRef, { status: 'approved' });
       setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: 'approved' } : w));
       
       await logAction('APPROVE_WITHDRAWAL', id, targetEmail, `Admin approved withdrawal of ₦${withdrawals.find(w => w.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'INFO');
@@ -206,14 +266,35 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       alert('Failed to approve withdrawal.');
+    } finally {
+      setProcessingIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
   const rejectWithdrawal = async (id: string, userId: string, amount: number) => {
+    if (processingIds[id]) return;
+    setProcessingIds(prev => ({ ...prev, [id]: true }));
     try {
+      const withdrawalRef = doc(db, 'withdrawals', id);
+      const withdrawalSnap = await getDoc(withdrawalRef);
+      if (!withdrawalSnap.exists()) {
+        alert('Withdrawal request not found.');
+        return;
+      }
+      const withdrawalData = withdrawalSnap.data();
+      if (withdrawalData && withdrawalData.status !== 'pending' && withdrawalData.status !== undefined && withdrawalData.status !== '') {
+        alert(`This withdrawal is already processed (current status: ${withdrawalData.status}).`);
+        setWithdrawals(withdrawals.map(w => w.id === id ? { ...w, status: withdrawalData.status } : w));
+        return;
+      }
+
       const targetEmail = (userId || '').trim().toLowerCase();
       // 1. Mark status as 'rejected'
-      await updateDoc(doc(db, 'withdrawals', id), { status: 'rejected' });
+      await updateDoc(withdrawalRef, { status: 'rejected' });
       
       // 2. Refund balance to the user
       const q = query(collection(db, 'users'), where('email', '==', targetEmail));
@@ -236,6 +317,12 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
       alert('Failed to reject withdrawal request and refund.');
+    } finally {
+      setProcessingIds(prev => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -668,7 +755,8 @@ export default function AdminPanel() {
                               <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                 <button
                                   onClick={() => approveDeposit(d.id, d.userId, d.amount)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[d.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                   id={`approve-deposit-${d.id}`}
                                 >
                                   <Check size={14} />
@@ -676,7 +764,8 @@ export default function AdminPanel() {
                                 </button>
                                 <button
                                   onClick={() => rejectDeposit(d.id)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[d.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                   id={`reject-deposit-${d.id}`}
                                 >
                                   <XCircle size={14} />
@@ -684,7 +773,8 @@ export default function AdminPanel() {
                                 </button>
                                 <button
                                   onClick={() => deleteDeposit(d.id)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[d.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                 >
                                   <Trash2 size={14} />
                                   Delete
@@ -765,21 +855,24 @@ export default function AdminPanel() {
                               <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                 <button
                                   onClick={() => approveWithdrawal(w.id)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[w.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[w.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                 >
                                   <Check size={14} />
                                   Approve
                                 </button>
                                 <button
                                   onClick={() => rejectWithdrawal(w.id, w.userId, w.amount)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[w.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[w.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                 >
                                   <XCircle size={14} />
                                   Reject & Refund
                                 </button>
                                 <button
                                   onClick={() => deleteWithdrawal(w.id)}
-                                  className="flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
+                                  disabled={processingIds[w.id]}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[w.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                 >
                                   <Trash2 size={14} />
                                   Delete
