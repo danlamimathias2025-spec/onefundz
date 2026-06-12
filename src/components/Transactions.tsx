@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import EmptyState from './EmptyState';
 import SkeletonCard from './SkeletonCard';
-import { Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Check, AlertCircle, Loader2, Clock, XCircle } from 'lucide-react';
 import { db, auth } from '@/src/lib/firebase';
 import { 
   doc, 
@@ -26,6 +26,147 @@ interface CombinedLedgerItem {
   timestamp: number;
 }
 
+function InvestmentCountdown({ inv }: { inv: any }) {
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalMsLeft: number;
+    nextPayoutMsLeft: number;
+    percentComplete: number;
+  }>({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    totalMsLeft: 0,
+    nextPayoutMsLeft: 0,
+    percentComplete: 0
+  });
+
+  useEffect(() => {
+    const calculateTime = () => {
+      // 1. Resolve starting reference timestamp
+      const createdSeconds = inv.createdAt?.seconds || (inv.createdAt ? new Date(inv.createdAt).getTime() / 1000 : null);
+      const settledSeconds = inv.lastSettledAt?.seconds || (inv.lastSettledAt ? new Date(inv.lastSettledAt).getTime() / 1000 : null);
+      
+      const referenceSeconds = settledSeconds || createdSeconds || (Date.now() / 1000);
+      const referenceMs = referenceSeconds * 1000;
+      
+      const nowMs = Date.now();
+      
+      // Each payout cycle is spaced exactly 24 hours apart
+      const cycleLengthMs = 24 * 60 * 60 * 1000;
+      const nextPayoutMs = referenceMs + cycleLengthMs;
+      let nextPayoutMsLeft = nextPayoutMs - nowMs;
+      if (nextPayoutMsLeft < 0) {
+        nextPayoutMsLeft = 0; // Settlement cycle processing...
+      }
+
+      const remDays = inv.remainingDays || 0;
+      
+      // Compute highly accurate total time left
+      let totalMsLeft = 0;
+      if (remDays > 0) {
+        totalMsLeft = Math.max(0, (remDays - 1) * cycleLengthMs + nextPayoutMsLeft);
+      }
+
+      // Calculate base original validator pack duration from database records
+      const daily = inv.dailyPayout || 1;
+      const totalReturn = inv.totalReturn || daily;
+      const originalDays = Math.round(totalReturn / daily) || 45;
+      
+      // Compute percentage completion
+      const daysLoaded = originalDays - remDays;
+      const cycleElapsedFraction = remDays > 0 ? (cycleLengthMs - nextPayoutMsLeft) / cycleLengthMs : 1;
+      const exactDaysCompleted = Math.max(0, Math.min(originalDays, daysLoaded + cycleElapsedFraction));
+      const percentComplete = Math.min(100, Math.max(0, (exactDaysCompleted / originalDays) * 100));
+
+      const secs = Math.floor(totalMsLeft / 1000);
+      const d = Math.floor(secs / (24 * 3600));
+      const h = Math.floor((secs % (24 * 3600)) / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+
+      setTimeLeft({
+        days: d,
+        hours: h,
+        minutes: m,
+        seconds: s,
+        totalMsLeft,
+        nextPayoutMsLeft,
+        percentComplete
+      });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [inv]);
+
+  const pad = (num: number) => String(num).padStart(2, '0');
+
+  const formatNextPayout = (ms: number) => {
+    if (ms <= 0) return 'Processing Yield...';
+    const totalSecs = Math.floor(ms / 1000);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    return `${pad(h)}h ${pad(m)}m ${pad(s)}s`;
+  };
+
+  return (
+    <div className="space-y-3 mt-3 bg-slate-50/70 dark:bg-slate-950/30 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 shadow-inner">
+      {/* Dynamic Percent Progress Bar */}
+      <div className="space-y-1">
+        <div className="flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500 font-bold">
+          <span className="uppercase tracking-wider">Package Validity Progress</span>
+          <span className="font-mono text-slate-700 dark:text-slate-300">
+            {timeLeft.percentComplete.toFixed(1)}%
+          </span>
+        </div>
+        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-red-500 via-amber-500 to-emerald-500 transition-all duration-1000 rounded-full"
+            style={{ width: `${timeLeft.percentComplete}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Grid displays */}
+      <div className="grid grid-cols-2 gap-2.5 text-xs">
+        {/* Total subscription remaining countdown */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800/40 p-2.5 rounded-lg flex flex-col justify-center shadow-2xs">
+          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Time Remaining</span>
+          {timeLeft.totalMsLeft <= 0 ? (
+            <span className="font-extrabold text-rose-600 dark:text-rose-400">Completed</span>
+          ) : (
+            <div className="font-mono font-bold text-slate-800 dark:text-slate-100 flex items-baseline gap-0.5">
+              <span className="text-sm text-red-600 dark:text-red-400">{timeLeft.days}</span>
+              <span className="text-[10px] text-slate-400 mr-0.5">d</span>
+              <span>{pad(timeLeft.hours)}</span>
+              <span className="text-[10px] text-slate-400">:</span>
+              <span>{pad(timeLeft.minutes)}</span>
+              <span className="text-[10px] text-slate-400">:</span>
+              <span className="text-emerald-500 font-extrabold animate-pulse">{pad(timeLeft.seconds)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Live cycle payout countdown */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800/40 p-2.5 rounded-lg flex flex-col justify-center shadow-2xs">
+          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Next Yield Cycle</span>
+          <span className="font-mono font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-0.5" />
+            {formatNextPayout(timeLeft.nextPayoutMsLeft)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Transactions() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'transactions' | 'investments' | 'withdrawals'>('transactions');
@@ -42,6 +183,7 @@ export default function Transactions() {
   const [showWithdrawCheckOverlay, setShowWithdrawCheckOverlay] = useState(false);
   
   const [withdrawalFilter, setWithdrawalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [selectedAccount, setSelectedAccount] = useState<'primary' | null>(null);
   const [isAddingBank, setIsAddingBank] = useState(false);
   const [newBankName, setNewBankName] = useState('');
@@ -277,6 +419,11 @@ export default function Transactions() {
     }))
   ].sort((a, b) => b.timestamp - a.timestamp);
 
+  const filteredLedger = compiledLedger.filter(item => {
+    if (ledgerFilter === 'all') return true;
+    return (item.status || 'approved').toLowerCase() === ledgerFilter;
+  });
+
   const filteredWithdrawals = dbWithdrawals.filter(w => {
     if (withdrawalFilter === 'all') return true;
     return (w.status || 'pending').toLowerCase() === withdrawalFilter;
@@ -293,14 +440,37 @@ export default function Transactions() {
   }
 
   const getStatusBadge = (status: 'pending' | 'approved' | 'rejected') => {
-    const colors = {
-      pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-900/10',
-      approved: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-900/10',
-      rejected: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-900/10',
-    };
     const lookupVal = (status || 'pending').toLowerCase() as 'pending' | 'approved' | 'rejected';
-    const finalStyle = colors[lookupVal] || colors.pending;
-    return <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${finalStyle}`}>{status ? status.toUpperCase() : 'PENDING'}</span>;
+    
+    switch (lookupVal) {
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-50 text-amber-700 border border-amber-200/60 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/60 shadow-2xs">
+            <Clock size={10} className="text-amber-600 dark:text-amber-400 animate-pulse" />
+            Pending
+          </span>
+        );
+      case 'approved':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/60 shadow-2xs">
+            <Check size={10} className="text-emerald-600 dark:text-emerald-400" />
+            Approved
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-rose-50 text-rose-700 border border-rose-200/60 dark:bg-rose-955/20 dark:text-rose-400 dark:border-rose-900/60 shadow-2xs">
+            <XCircle size={10} className="text-rose-600 dark:text-rose-400" />
+            Rejected
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-slate-100 text-slate-800 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 shadow-2xs">
+            {status ? status.toUpperCase() : 'PENDING'}
+          </span>
+        );
+    }
   };
 
   const getAmountColor = (item: CombinedLedgerItem) => {
@@ -317,60 +487,88 @@ export default function Transactions() {
       <div className="flex gap-4 mb-6 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
         <button 
           onClick={() => setActiveTab('transactions')}
-          className={`pb-2 whitespace-nowrap text-sm ${activeTab === 'transactions' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+          className={`pb-2 whitespace-nowrap text-sm transition-all duration-150 ${activeTab === 'transactions' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-750 dark:hover:text-slate-350'}`}
         >
           General Ledger
         </button>
         <button 
           onClick={() => setActiveTab('investments')}
-          className={`pb-2 whitespace-nowrap text-sm ${activeTab === 'investments' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+          className={`pb-2 whitespace-nowrap text-sm transition-all duration-150 ${activeTab === 'investments' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-750 dark:hover:text-slate-350'}`}
         >
           Active Packages ({dbInvestments.length})
         </button>
         <button 
           onClick={() => setActiveTab('withdrawals')}
-          className={`pb-2 whitespace-nowrap text-sm ${activeTab === 'withdrawals' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500'}`}
+          className={`pb-2 whitespace-nowrap text-sm transition-all duration-150 ${activeTab === 'withdrawals' ? 'border-b-2 border-slate-900 dark:border-slate-100 font-bold text-slate-900 dark:text-slate-100' : 'text-slate-500 hover:text-slate-750 dark:hover:text-slate-350'}`}
         >
           Withdraw Claims ({dbWithdrawals.length})
         </button>
       </div>
 
       {activeTab === 'transactions' ? (
-        compiledLedger.length === 0 ? (
-          <EmptyState title="No Ledger Entries" message="Your wallet has no deposit funding, payout, or plan subscriptions on file yet." />
-        ) : (
-          <motion.div 
-            className="space-y-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <AnimatePresence mode="popLayout">
-              {compiledLedger.map(item => (
-                <motion.div 
-                  layout
-                  key={item.id} 
-                  className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -15 }}
-                  transition={{ duration: 0.25 }}
+        <div className="space-y-4">
+          {/* Status Filter Tab Pills */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-205 dark:border-slate-805 w-max select-none shadow-2xs">
+            {(['all', 'pending', 'approved', 'rejected'] as const).map(f => {
+              const count = f === 'all'
+                ? compiledLedger.length
+                : compiledLedger.filter(item => (item.status || 'approved').toLowerCase() === f).length;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setLedgerFilter(f)}
+                  className={`px-3 py-1 text-[10px] sm:text-xs font-extrabold rounded-lg capitalize transition-all duration-150 ${
+                    ledgerFilter === f
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
                 >
-                  <div>
-                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.description}</p>
-                    <p className="text-[10px] text-slate-400 capitalize">{item.category} • {item.date}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className={`font-mono font-bold text-sm ${getAmountColor(item)}`}>
-                      {item.amount > 0 ? '+' : ''}₦ {item.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
-                    </span>
-                    {getStatusBadge(item.status)}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )
+                  {f} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredLedger.length === 0 ? (
+            <EmptyState 
+              title={`No ${ledgerFilter !== 'all' ? ledgerFilter : ''} Entries`} 
+              message={`Your wallet has no ${ledgerFilter === 'all' ? '' : ledgerFilter} general transactions recorded.`} 
+            />
+          ) : (
+            <motion.div 
+              className="space-y-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredLedger.map(item => (
+                  <motion.div 
+                    layout
+                    key={item.id} 
+                    className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex items-center justify-between shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition"
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -15 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <div>
+                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.description}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 capitalize">{item.category} • {item.date}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className={`font-mono font-bold text-sm ${getAmountColor(item)}`}>
+                        {item.amount > 0 ? '+' : ''}₦ {item.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                      </span>
+                      {getStatusBadge(item.status)}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </div>
       ) : activeTab === 'investments' ? (
         dbInvestments.length === 0 ? (
           <EmptyState title="No Account Packages" message="You have no active yield-generating subscription plans. Browse and purchase from home tab!" />
@@ -396,12 +594,11 @@ export default function Transactions() {
                     <p className="font-bold text-red-600 dark:text-red-400 text-sm">{inv.productName}</p>
                     <span className="font-mono font-bold text-sm text-slate-950 dark:text-slate-50">₦ {inv.amount.toLocaleString()}</span>
                   </div>
-                  <div className="grid grid-cols-2 text-[10px] text-slate-500 gap-y-1 border-t border-slate-100 dark:border-slate-800/60 pt-2">
-                    <div>Remaining Time: <span className="font-semibold text-slate-700 dark:text-slate-300">{Math.ceil(inv.remainingDays)} days</span></div>
-                    <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Continuous</span></div>
+                  <div className="grid grid-cols-2 text-[10px] text-slate-500 gap-y-1 border-t border-slate-100 dark:border-slate-800/60 pt-2 pb-1">
                     <div>Daily Yield: <span className="font-bold text-green-600 dark:text-green-400">₦ {inv.dailyPayout?.toLocaleString() || '0'}</span></div>
-                    <div className="text-right">Next Payout: <span className="font-semibold text-slate-700 dark:text-slate-300">Live</span></div>
+                    <div className="text-right">Payout Frequency: <span className="font-semibold text-slate-700 dark:text-slate-300">Continuous (24h)</span></div>
                   </div>
+                  <InvestmentCountdown inv={inv} />
                 </motion.div>
               ))}
             </AnimatePresence>
