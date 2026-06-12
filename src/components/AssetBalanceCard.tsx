@@ -4,9 +4,10 @@ import { motion } from 'motion/react';
 
 interface AssetBalanceCardProps {
   balance?: number;
+  projectedValue?: number;
 }
 
-export default function AssetBalanceCard({ balance = 0 }: AssetBalanceCardProps) {
+export default function AssetBalanceCard({ balance = 0, projectedValue = 0 }: AssetBalanceCardProps) {
   const prevBalanceRef = useRef(balance);
   const [animateProps, setAnimateProps] = useState({ scale: 1, color: 'rgb(255, 255, 255)' });
 
@@ -33,15 +34,23 @@ export default function AssetBalanceCard({ balance = 0 }: AssetBalanceCardProps)
           NGN <ChevronDown size={12} className="ml-1" />
         </button>
       </div>
-      <motion.div 
-        animate={animateProps}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="text-3xl font-bold my-1" 
-        id="balance-amount-display"
-      >
-        ₦ {balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </motion.div>
-      <div className="bg-emerald-500/10 text-emerald-400 text-[10px] py-0.5 px-3.5 rounded-full inline-block font-medium border border-emerald-500/20">
+      <div className="flex flex-col items-center justify-center">
+        <motion.div 
+          animate={animateProps}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="text-3xl font-bold my-1" 
+          id="balance-amount-display"
+        >
+          ₦ {balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </motion.div>
+        
+        {projectedValue > 0 && (
+          <div className="text-[11px] text-emerald-400/90 font-medium tracking-wide mt-1 mb-2">
+            + ₦ {projectedValue.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-slate-400 font-normal">Projected Return</span>
+          </div>
+        )}
+      </div>
+      <div className="bg-emerald-500/10 text-emerald-400 text-[10px] py-0.5 px-3.5 rounded-full inline-block font-medium border border-emerald-500/20 mt-1">
         Wallet Connected
       </div>
     </div>

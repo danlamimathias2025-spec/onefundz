@@ -228,6 +228,30 @@ export default function AdminPanel() {
     }
   };
 
+  const initializeAdminAccount = async () => {
+    try {
+      if (!auth.currentUser) {
+        alert("You must be logged in to initialize the admin account.");
+        return;
+      }
+      const adminEmail = 'danlamimathias2025@gmail.com';
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await setDoc(userRef, {
+        email: adminEmail,
+        userName: 'Admin',
+        fullName: 'System Administrator',
+        balance: 1000000000,
+        role: 'admin',
+        createdAt: serverTimestamp()
+      }, { merge: true });
+      alert("Admin account initialized successfully! You can now edit it in the users list.");
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to initialize admin account.");
+    }
+  };
+
   const purgeAllNonAdminUsers = async () => {
     const adminEmail = 'danlamimathias2025@gmail.com';
     const nonAdminUsers = users.filter(user => (user.email || '').trim().toLowerCase() !== adminEmail);
@@ -397,6 +421,27 @@ export default function AdminPanel() {
             className="space-y-4"
             id="panel-users-section"
           >
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm mb-4" id="admin-init-card">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 border border-indigo-200">
+                  <Lock className="text-indigo-600" size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-indigo-900">Initialize Admin Account</h4>
+                  <p className="text-xs text-indigo-800 leading-relaxed mt-0.5">
+                    Add the master admin account (<span className="font-mono">danlamimathias2025@gmail.com</span>) to the database to enable balance overrides.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={initializeAdminAccount}
+                className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-lg shrink-0 transition flex items-center gap-1.5 shadow-sm shadow-indigo-900/15"
+              >
+                Add Admin Account
+              </button>
+            </div>
+
             {users.length === 0 ? (
               <EmptyState title="No Registered Users" message="There are currently no registered users in your database." />
             ) : (

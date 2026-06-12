@@ -216,6 +216,56 @@ export default function App() {
     return () => clearInterval(intervalTimer);
   }, [realInvestments, user]);
 
+  const notifiedMilestones = useRef<Record<string, Set<number>>>({});
+  const initialLoadMilestonesDone = useRef(false);
+
+  // 3.5 Process yield milestone alerts
+  useEffect(() => {
+    if (!user || realInvestments.length === 0) return;
+
+    // Check if we are on the first load of these investments
+    const isFirstLoad = !initialLoadMilestonesDone.current;
+    let didProcessAtLeastOne = false;
+
+    realInvestments.forEach((inv) => {
+      const targetYield = inv.totalReturn || 0;
+      const currentYield =
+        targetYield -
+        Math.max(0, inv.remainingDays || 0) * (inv.dailyPayout || 0);
+
+      if (targetYield > 0 && inv.status === "active") {
+        didProcessAtLeastOne = true;
+        const percentage = (currentYield / targetYield) * 100;
+        const milestones = [25, 50, 75, 100];
+
+        if (!notifiedMilestones.current[inv.id]) {
+          notifiedMilestones.current[inv.id] = new Set();
+        }
+
+        milestones.forEach((milestone) => {
+          if (
+            percentage >= milestone &&
+            !notifiedMilestones.current[inv.id].has(milestone)
+          ) {
+            notifiedMilestones.current[inv.id].add(milestone);
+
+            // Only toast if it's NOT the first load
+            if (!isFirstLoad) {
+              success(
+                "Yield Milestone Reached 🚀",
+                `Your ${inv.productName} investment has reached ${milestone}% of its target yield (₦${currentYield.toLocaleString("en-NG")}).`,
+              );
+            }
+          }
+        });
+      }
+    });
+
+    if (didProcessAtLeastOne) {
+      initialLoadMilestonesDone.current = true;
+    }
+  }, [realInvestments, user, success]);
+
   // 4. Auto-heal and sync referral code details to the global index
   useEffect(() => {
     if (!user || !userData) return;
@@ -335,6 +385,14 @@ export default function App() {
   const isAdmin = user.email?.toLowerCase() === "danlamimathias2025@gmail.com";
   const balanceVal = userData?.balance || 0;
 
+  const projectedValueVal = realInvestments
+    .filter((i) => i.status === "active")
+    .reduce(
+      (sum, inv) =>
+        sum + (inv.dailyPayout || 0) * Math.max(0, inv.remainingDays || 0),
+      0,
+    );
+
   return (
     <div className="bg-white dark:bg-slate-950 min-h-screen font-sans pb-20 text-slate-900 dark:text-slate-100">
       {activeTab === "Home" && (
@@ -437,7 +495,10 @@ export default function App() {
             </div>
           ) : (
             <>
-              <AssetBalanceCard balance={balanceVal} />
+              <AssetBalanceCard
+                balance={balanceVal}
+                projectedValue={projectedValueVal}
+              />
               <DailyGrowthIndicator />
               <PerformanceChart investments={realInvestments} />
 
