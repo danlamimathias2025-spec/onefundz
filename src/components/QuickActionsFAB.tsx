@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 
-export default function QuickActionsFAB({ onDepositClick }: { onDepositClick: () => void }) {
+export default function QuickActionsFAB({ onDepositClick, onWithdrawClick }: { onDepositClick: () => void, onWithdrawClick?: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const actions = [
     { name: 'Deposit', icon: ArrowDownCircle, action: onDepositClick },
-    { name: 'Withdraw', icon: ArrowUpCircle, action: () => alert('Withdraw modal') },
+    { name: 'Withdraw', icon: ArrowUpCircle, action: onWithdrawClick || (() => alert('Withdraw modal')) },
   ];
 
   return (

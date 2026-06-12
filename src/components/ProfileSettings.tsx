@@ -36,8 +36,8 @@ const banks = [
   "Titan Trust Bank", "Globus Bank"
 ];
 
-export default function ProfileSettings({ onStartTour, isAdmin }: { onStartTour?: () => void, isAdmin?: boolean }) {
-  const [activeView, setActiveView] = useState<'profile' | 'deposit' | 'withdraw'>('profile');
+export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'profile' }: { onStartTour?: () => void, isAdmin?: boolean, initialView?: 'profile' | 'deposit' | 'withdraw' }) {
+  const [activeView, setActiveView] = useState<'profile' | 'deposit' | 'withdraw'>(initialView);
   const [userData, setUserData] = useState({
     userName: '',
     bankName: '',
