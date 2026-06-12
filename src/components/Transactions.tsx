@@ -354,6 +354,13 @@ export default function Transactions() {
     const amount = parseFloat(withdrawalAmount);
     const currentBalance = bankData.balance || 0;
 
+    // Strict validation check: withdrawals only permitted once overall active investment packages have finished/ended.
+    const activeRunningPlans = dbInvestments.filter(inv => (inv.remainingDays || 0) > 0);
+    if (activeRunningPlans.length > 0) {
+      alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       // 1. Deduct immediately from main profile balance

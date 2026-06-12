@@ -436,7 +436,8 @@ export default function AdminPanel() {
     setIsSavingUser(true);
     try {
       const userRef = doc(db, 'users', selectedUser.id);
-      const parsedBalance = parseFloat(editForm.balance as any) || 0;
+      const sanitizedBalanceStr = String(editForm.balance).replace(/[^0-9.-]/g, '');
+      const parsedBalance = parseFloat(sanitizedBalanceStr) || 0;
       const updatedFields = {
         userName: editForm.userName,
         fullName: editForm.fullName,

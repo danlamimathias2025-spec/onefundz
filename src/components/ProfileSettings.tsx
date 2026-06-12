@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '@/src/lib/firebase';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot, increment, query, where, getDocs } from 'firebase/firestore';
 import { signOut, updatePassword } from 'firebase/auth';
 import { 
   User, 
@@ -104,7 +104,8 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
     if (!auth.currentUser) return;
     setIsSavingBalance(true);
     try {
-      const parsedAmount = parseFloat(newBalanceAmount);
+      const sanitizedAmountStr = String(newBalanceAmount).replace(/[^0-9.-]/g, '');
+      const parsedAmount = parseFloat(sanitizedAmountStr);
       if (isNaN(parsedAmount) || parsedAmount < 0) {
         alert("Please enter a valid positive number for balance.");
         setIsSavingBalance(false);
@@ -465,6 +466,16 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
 
     setIsWithdrawalSubmitting(true);
     try {
+      // Check if any of their active investment packages are still running (remainingDays > 0)
+      const q = query(collection(db, 'investments'), where('userId', '==', auth.currentUser.email.toLowerCase()));
+      const snap = await getDocs(q);
+      const activeRunningDocs = snap.docs.filter(doc => (doc.data().remainingDays || 0) > 0);
+      if (activeRunningDocs.length > 0) {
+        alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
+        setIsWithdrawalSubmitting(false);
+        return;
+      }
+
       // 1. Deduct immediately from database profile balance
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, {

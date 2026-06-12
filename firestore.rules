@@ -5,10 +5,15 @@ service cloud.firestore {
     function isEmailVerified() { return request.auth.token.email_verified == true; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isAdmin() { 
-      return isSignedIn() && 
-             ('email' in request.auth.token) && 
-             (request.auth.token.email == 'danlamimathias2025@gmail.com' ||
-              request.auth.token.email.matches('(?i)^danlamimathias2025@gmail[.]com$')); 
+      return isSignedIn() && (
+        ('email' in request.auth.token && (request.auth.token.email == 'danlamimathias2025@gmail.com' || request.auth.token.email.matches('(?i)^danlamimathias2025@gmail[.]com$'))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'danlamimathias2025@gmail.com' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email.matches('(?i)^danlamimathias2025@gmail[.]com$'))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
     function isOwnerEmail(userEmail) {
       return isSignedIn() && (
