@@ -81,10 +81,11 @@ export default function App() {
   // 1. Authenticated User Observer
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
+      // Instantly clear child states on auth change to prevent cross-user state leaks or race conditions
+      setUserData(null);
+      setRealInvestments([]);
       setUser(currentUser);
       if (!currentUser) {
-        setUserData(null);
-        setRealInvestments([]);
         setLoading(false);
       }
     });
@@ -294,9 +295,10 @@ export default function App() {
     if (!user || !userData) return;
 
     const syncReferralIndex = async () => {
-      // If the user document does not exist in the database (indicated by a missing document id on userData),
-      // we must NOT attempt to write or auto-heal the referral code to avoid failing security rules on 'create' operations.
-      if (!userData || !userData.id) return;
+      // Ensure the loaded user data actually belongs to the current authenticated user!
+      // If the document does not exist (no id) or belongs to a different/stale user session,
+      // return immediately to prevent unauthorized writes or failing security rules on creation.
+      if (!userData || !userData.id || userData.id !== user.uid) return;
 
       let myRefCode = userData.referralCode;
 
