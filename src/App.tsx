@@ -69,6 +69,7 @@ export default function App() {
   >("profile");
   const { success } = useToast();
   const prevProfileCompletion = useRef<number | null>(null);
+  const processedPayoutsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
@@ -150,6 +151,21 @@ export default function App() {
   useEffect(() => {
     if (!user || realInvestments.length === 0) return;
 
+    const getMsFromTimestamp = (val: any): number => {
+      if (!val) return 0;
+      if (typeof val.toDate === "function") {
+        return val.toDate().getTime();
+      }
+      if (typeof val.seconds === "number") {
+        return val.seconds * 1000;
+      }
+      if (val instanceof Date) {
+        return val.getTime();
+      }
+      const parsed = new Date(val).getTime();
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
     const performCrediting = () => {
       let totalNewBalance = 0;
       const batchUpdates: Array<{ ref: any; data: any }> = [];
@@ -157,10 +173,14 @@ export default function App() {
       realInvestments.forEach((inv) => {
         if (inv.status !== "active") return;
 
-        const timestamp = inv.lastSettledAt?.seconds || inv.createdAt?.seconds;
-        if (!timestamp) return;
+        const lastSettleMs = getMsFromTimestamp(inv.lastSettledAt) || getMsFromTimestamp(inv.createdAt);
+        if (!lastSettleMs) return;
 
-        const lastSettleMs = timestamp * 1000;
+        // Prevent rapid duplicate payouts when local layout compiles live latency changes
+        if (processedPayoutsRef.current[inv.id] === lastSettleMs) {
+          return;
+        }
+
         const nowMs = Date.now();
         const diffMs = nowMs - lastSettleMs;
         const daysPassed = Math.floor(diffMs / (24 * 60 * 60 * 1000));
@@ -175,6 +195,9 @@ export default function App() {
           if (actualDaysToSettle > 0) {
             totalNewBalance += inv.dailyPayout * actualDaysToSettle;
             const newRemaining = inv.remainingDays - actualDaysToSettle;
+
+            // Cache the reference timestamp immediately to avoid redundant calculations
+            processedPayoutsRef.current[inv.id] = lastSettleMs;
 
             batchUpdates.push({
               ref: doc(db, "investments", inv.id),
@@ -271,6 +294,10 @@ export default function App() {
     if (!user || !userData) return;
 
     const syncReferralIndex = async () => {
+      // If the user document does not exist in the database (indicated by a missing document id on userData),
+      // we must NOT attempt to write or auto-heal the referral code to avoid failing security rules on 'create' operations.
+      if (!userData || !userData.id) return;
+
       let myRefCode = userData.referralCode;
 
       // If code is not set on the user document yet, auto-generate & write it
