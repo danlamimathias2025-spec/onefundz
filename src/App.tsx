@@ -17,6 +17,7 @@ import {
   ArrowUpCircle,
   Share2,
   History,
+  WifiOff,
 } from "lucide-react";
 import Header from "./components/Header";
 import AssetBalanceCard from "./components/AssetBalanceCard";
@@ -70,6 +71,25 @@ export default function App() {
   const { success } = useToast();
   const prevProfileCompletion = useRef<number | null>(null);
   const processedPayoutsRef = useRef<Record<string, number>>({});
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      success("Online Mode", "We are back online! Syncing balance and subscriptions with the cloud...");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [success]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
@@ -424,6 +444,12 @@ export default function App() {
 
   return (
     <div className="bg-white dark:bg-slate-950 min-h-screen font-sans pb-20 text-slate-900 dark:text-slate-100">
+      {!isOnline && (
+        <div id="offline-mode-banner" className="bg-amber-500 dark:bg-amber-600 text-white text-center py-2 px-4 text-xs font-semibold flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md">
+          <WifiOff className="w-4 h-4 animate-pulse shrink-0" />
+          <span>You are offline. Subscriptions, transactions, and edits will run locally and sync when you reconnect!</span>
+        </div>
+      )}
       {activeTab === "Home" && (
         <>
           <Header toggleTheme={toggleTheme} isDarkMode={isDarkMode} />
