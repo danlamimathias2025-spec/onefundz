@@ -16,13 +16,13 @@ service cloud.firestore {
     }
     function isOwnerEmail(userEmail) {
       return isSignedIn() && (
-        ('email' in request.auth.token && request.auth.token.email == userEmail) ||
+        ('email' in request.auth.token && request.auth.token.email.lower() == userEmail.lower()) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '') == userEmail)
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('email', '').lower() == userEmail.lower())
       );
     }
     function isEmailOwner(userEmail) {
-      return isSignedIn() && ('email' in request.auth.token && request.auth.token.email == userEmail);
+      return isSignedIn() && ('email' in request.auth.token && request.auth.token.email.lower() == userEmail.lower());
     }
     function isValidUser(data) {
       return data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
@@ -48,9 +48,7 @@ service cloud.firestore {
                       request.resource.data.keys().hasAll(['fullName', 'phoneNumber', 'email', 'userName', 'createdAt']);
       allow update: if isAdmin() || (isSignedIn() && (
                       (isOwner(userId) && (
-                        !('role' in request.resource.data) || 
-                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' ||
-                        request.resource.data.role == resource.data.get('role', 'user')
+                        request.resource.data.get('role', 'user') == resource.data.get('role', 'user')
                       )) || (
                         // Allow incrementing balance by exactly N1,200 for referral rewards
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
@@ -102,7 +100,7 @@ service cloud.firestore {
       allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId));
       allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId));
       allow create: if isSignedIn() && isEmailOwner(request.resource.data.userId);
-      allow update: if isAdmin();
+      allow update: if isAdmin() || isOwnerEmail(resource.data.userId);
       allow delete: if isAdmin();
     }
 

@@ -49,6 +49,7 @@ import {
   setDoc,
   updateDoc,
   increment,
+  writeBatch,
 } from "firebase/firestore";
 
 export default function App() {
@@ -147,7 +148,7 @@ export default function App() {
     // Listen to active investments dynamically
     const qInv = query(
       collection(db, "investments"),
-      where("userId", "==", user.email),
+      where("userId", "==", user.email?.toLowerCase()),
     );
     const unsubInv = onSnapshot(
       qInv,
@@ -237,14 +238,17 @@ export default function App() {
       if (totalNewBalance > 0) {
         const applyUpdates = async () => {
           try {
+            const batch = writeBatch(db);
             // Increment the user's primary wallet balance
-            await updateDoc(doc(db, "users", user.uid), {
+            batch.update(doc(db, "users", user.uid), {
               balance: increment(totalNewBalance),
             });
             // Update the localized investment records tracking
-            for (const update of batchUpdates) {
-              await updateDoc(update.ref, update.data);
-            }
+            batchUpdates.forEach((update) => {
+              batch.update(update.ref, update.data);
+            });
+            await batch.commit();
+            console.log(`[Auto-crediting] Successfully credited ₦${totalNewBalance.toLocaleString()} and settled ${batchUpdates.length} investments atomically.`);
           } catch (error) {
             console.error("Auto-crediting error:", error);
           }
