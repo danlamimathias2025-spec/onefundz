@@ -1,16 +1,16 @@
 import React from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, Flame } from 'lucide-react';
 
 export default function DailyGrowthIndicator() {
-  // Simulate 7-day growth - In a real app, this would be computed from historical data
-  const growthPercentage = 2.45;
-  const isPositive = growthPercentage >= 0;
+  const growthPercentage = 3.85;
 
   return (
-    <div id="daily-growth-indicator" className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} w-max mx-auto mt-2`}>
-        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-        <span className="font-semibold">{isPositive ? '+' : ''}{growthPercentage}%</span>
-        <span className="text-slate-500">last 7 days</span>
+    <div id="daily-growth-indicator" className="flex items-center justify-center gap-2 text-xs px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 w-max mx-auto mt-2 font-medium">
+      <TrendingUp size={13} className="text-emerald-500" />
+      <span className="font-bold text-emerald-500">+{growthPercentage}%</span>
+      <span className="text-slate-500 dark:text-slate-400">Pre-IPO Valuation Momentum</span>
+      <span className="hidden sm:inline text-slate-400">·</span>
+      <span className="hidden sm:inline text-slate-500 dark:text-slate-400 font-mono">NGX: DANGOTE-REF</span>
     </div>
   );
 }

@@ -1,69 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import logoSrc from '../assets/images/onefundz_logo_1780826034862.png';
+import { DANGOTE_ASSETS } from '../assets/dangoteAssets';
 
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
-const letters = [
-  { char: 'O', color: 'text-red-500' },
-  { char: 'N', color: 'text-blue-500' },
-  { char: 'E', color: 'text-green-500' },
-  { char: 'F', color: 'text-yellow-500' },
-  { char: 'U', color: 'text-purple-500' },
-  { char: 'N', color: 'text-pink-500' },
-  { char: 'D', color: 'text-indigo-500' },
-  { char: 'Z', color: 'text-teal-500' },
-];
-
 export default function SplashScreen({ onFinish }: SplashScreenProps) {
-  const [logoError, setLogoError] = useState(false);
+  const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Fallback timer just in case animation completes don't fire
-    const timer = setTimeout(onFinish, 2500);
-    return () => clearTimeout(timer);
+    // Show the exact full screen splash screen image for 2.2s, then smooth transition
+    const fadeTimer = setTimeout(() => {
+      setFading(true);
+    }, 2200);
+
+    const finishTimer = setTimeout(() => {
+      onFinish();
+    }, 2600);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(finishTimer);
+    };
   }, [onFinish]);
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-950 z-50">
-      {!logoError ? (
-        <img 
-          src={logoSrc} 
-          alt="ONEFUNDZ Logo" 
-          className="w-24 h-24 rounded-full mb-8 shadow-2xl object-cover" 
-          referrerPolicy="no-referrer" 
-          onError={() => setLogoError(true)}
-        />
-      ) : (
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-          className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 via-amber-500 to-amber-700 flex items-center justify-center font-black text-slate-950 shadow-2xl text-3xl border-4 border-yellow-300 mb-8 select-none"
-        >
-          OF
-        </motion.div>
-      )}
-      <div className="flex space-x-2">
-        {letters.map((item, index) => (
-          <motion.span
-            key={index}
-            initial={{ opacity: 0, x: index % 2 === 0 ? -100 : 100, y: index % 2 === 0 ? -100 : 100, rotate: -180 }}
-            animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
-            transition={{ duration: 0.8, delay: index * 0.1, type: 'spring', stiffness: 100 }}
-            className={`text-5xl font-extrabold ${item.color}`}
-            onAnimationComplete={() => {
-              if (index === letters.length - 1) {
-                // Buffer of 150ms after the last letter settles before transitioning
-                setTimeout(onFinish, 150);
-              }
-            }}
-          >
-            {item.char}
-          </motion.span>
-        ))}
-      </div>
+    <div 
+      onClick={onFinish}
+      className={`fixed inset-0 z-[9999] w-screen h-screen bg-[#edf0f5] flex items-center justify-center overflow-hidden cursor-pointer select-none transition-opacity duration-400 ${
+        fading ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
+      id="application-splash-screen"
+      title="Tap anywhere to enter"
+    >
+      <img 
+        src={DANGOTE_ASSETS.splash} 
+        alt="Dangote Petroleum Refinery Splash Screen" 
+        className="w-full h-full object-cover sm:object-contain object-center max-w-full max-h-screen" 
+        draggable={false}
+      />
     </div>
   );
 }

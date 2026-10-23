@@ -1,6 +1,6 @@
 {
-  "name": "OneFundz",
-  "description": "A modern, minimalist mobile investment and wealth management dashboard.",
+  "name": "Dangote Refinery IPO",
+  "description": "Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. Buy, manage, and resell shares directly.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

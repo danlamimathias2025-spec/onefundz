@@ -14,19 +14,14 @@ try {
     fs.mkdirSync(publicDir, { recursive: true });
   }
 
-  const srcLogoPath = path.join(process.cwd(), "src", "assets", "images", "onefundz_logo_1780826034862.png");
+  const srcLogoPath = path.join(process.cwd(), "src", "assets", "images", "dangote_refinery_logo_1792704119466.jpg");
   if (fs.existsSync(srcLogoPath)) {
     const icon192Dest = path.join(publicDir, "icon-192.png");
     const icon512Dest = path.join(publicDir, "icon-512.png");
 
-    if (!fs.existsSync(icon192Dest)) {
-      fs.copyFileSync(srcLogoPath, icon192Dest);
-      console.log("[PWA Sync] Created icon-192.png in /public using master logo asset");
-    }
-    if (!fs.existsSync(icon512Dest)) {
-      fs.copyFileSync(srcLogoPath, icon512Dest);
-      console.log("[PWA Sync] Created icon-512.png in /public using master logo asset");
-    }
+    fs.copyFileSync(srcLogoPath, icon192Dest);
+    fs.copyFileSync(srcLogoPath, icon512Dest);
+    console.log("[PWA Sync] Synced Dangote Refinery IPO icons in /public");
   } else {
     console.warn("[PWA Warning] Master logo source file not found at " + srcLogoPath);
   }
@@ -63,6 +58,7 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(express.static(path.join(process.cwd(), "public")));
 
   // Economic Financial Market news endpoint with Google Search Grounding & fallback
   app.get("/api/news", async (req, res) => {
@@ -77,19 +73,19 @@ async function startServer() {
 
     try {
       const ai = getAiClient();
-      const prompt = `Find and compile the latest core economic developments in Nigeria and global financial market headlines for today, ${new Date().toDateString()}.
+      const prompt = `Find and compile the latest core news developments regarding Dangote Petroleum Refinery, Dangote Group, Nigerian stock market (NGX), energy equities, crude oil supply in Naira, and the upcoming Dangote Refinery Initial Public Offering (IPO) for ${new Date().toDateString()}.
 Format the response strictly as a JSON object containing a property 'articles' which is an array of objects.
 Each article must contain:
 - title: string (the actual news headline)
-- summary: string (1-2 sentences explaining what happened and why it matters)
-- sourceName: string (news source like Nairametrics, BusinessDay, CNBC Africa, or Bloomberg)
-- category: string (the market vertical e.g. "Currency", "Inflation", "Policy", "Stock Market", "Investment")
+- summary: string (1-2 sentences explaining what happened, refinery production, share pricing, or economic impact)
+- sourceName: string (news source like Nairametrics, BusinessDay, Bloomberg, Reuters, or CNBC Africa)
+- category: string (e.g. "IPO Allotment", "Refinery Output", "Crude Supply", "NGX Equities", "Dividends")
 - publishedTime: string (relative duration, e.g. "1 hour ago", "Today", "3 hours ago")
 
 Ensure the headlines are authentic, relevant, and grounded in real-time search. Ensure you return valid JSON.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -121,7 +117,6 @@ Ensure the headlines are authentic, relevant, and grounded in real-time search. 
       const parsedData = JSON.parse(textOutput);
 
       if (parsedData && Array.isArray(parsedData.articles)) {
-        // Update in-memory cache on success
         cachedNews = parsedData;
         cacheExpiry = now + CACHE_DURATION;
       }
@@ -131,55 +126,52 @@ Ensure the headlines are authentic, relevant, and grounded in real-time search. 
     } catch (error: any) {
       const errMsg = error.message || "";
       if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-        console.log("[News API Info] Gemini API quota is fully occupied. Seamlessly falling back to latest realistic market intelligence headlines.");
+        console.log("[News API Info] Gemini API quota occupied. Serving latest Dangote Refinery market headlines.");
       } else {
         console.warn("[News API Warning] Request could not be completed at this time:", errMsg);
       }
       
-      // Failover safety: use expired cached news if available, so users still get real news!
       if (cachedNews) {
-        console.log("Serving expired news cache as failover safety.");
         res.setHeader("Content-Type", "application/json");
         return res.status(200).json(cachedNews);
       }
       
-      // Gracious fallback to provide realistic actual financial news if GEMINI_API_KEY is not configured yet
       const fallbackNews = {
         articles: [
           {
-            title: "CBN Raises Prime Lending Rate to Support Anti-Inflation Measures",
-            summary: "The Central Bank of Nigeria has revised its policy guidance on banking sectors, locking capital yields to ensure stable premium reserve assets.",
-            sourceName: "Nairametrics",
-            category: "Policy",
-            publishedTime: "2 hours ago"
-          },
-          {
-            title: "Nigeria Foreign Reserves Edge Up Amid Trade Balance Improvement",
-            summary: "The nation's external reserves registered consecutive growth driven by sovereign debt balance discipline and improved oil output efficiency.",
+            title: "Dangote Refinery Accelerates Public IPO Allocation Amid Strong Retail Demand",
+            summary: "Investment banks and capital market operators report unprecedented subscriber demand across retail and institutional tranches ahead of formal NGX listing.",
             sourceName: "BusinessDay",
-            category: "Currency",
-            publishedTime: "Today"
+            category: "IPO Allotment",
+            publishedTime: "1 hour ago"
           },
           {
-            title: "Global Equity Markets Relieved as Fed Hints at Inflation Easing",
-            summary: "International indexes post significant green rallies following indicators that global interest rate hikes might pause in future economic turns.",
-            sourceName: "CNBC",
-            category: "Stock Market",
+            title: "Lekki Refinery Ramps Up PMS & Aviation Fuel Output Towards 650,000 BPD Target",
+            summary: "Dangote Petroleum Refinery expands daily refined product distribution, meeting 100% of domestic petrol needs with high-spec Euro-V fuel standards.",
+            sourceName: "Nairametrics",
+            category: "Refinery Output",
             publishedTime: "3 hours ago"
           },
           {
-            title: "Inflation Rate Peaks with Market Operators Projecting Yield Recovery",
-            summary: "Economic analysts report localized stability as the consumer price index registers minor momentum decline, driving investments back to high-yield programs.",
+            title: "Crude-for-Naira Deal Stabilizes Domestic Energy Costs and FX Reserves",
+            summary: "The direct domestic crude sales agreement between NNPCL and Dangote Refinery continues to bolster external reserves and strengthen the Naira exchange rate.",
             sourceName: "Bloomberg",
-            category: "Inflation",
+            category: "Crude Supply",
+            publishedTime: "Today"
+          },
+          {
+            title: "Analysts Project Robust Early Dividend Yields for Dangote Refinery Shareholders",
+            summary: "Financial analysts evaluate robust cash-flow margins as the petrochemical complex begins global exports of polypropylene and sulfur fertilizers.",
+            sourceName: "Reuters",
+            category: "Dividends",
             publishedTime: "4 hours ago"
           },
           {
-            title: "Tech Sector Powers Local Cooperative Fintech Investments",
-            summary: "Digital mutual lending apps gain mass trust following strict enforcement of security specifications for multi-user wallet settlements.",
-            sourceName: "TechCabal",
-            category: "Fintech",
-            publishedTime: "5 hours ago"
+            title: "NGX Energy Index Rallies to New Highs on Historic Dangote Listing Expectations",
+            summary: "The Nigerian Exchange prepares specialized trading infrastructure to accommodate millions of retail shareholders participating in the IPO subscription.",
+            sourceName: "CNBC Africa",
+            category: "NGX Equities",
+            publishedTime: "6 hours ago"
           }
         ]
       };

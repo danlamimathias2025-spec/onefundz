@@ -354,10 +354,8 @@ export default function Transactions() {
     const amount = parseFloat(withdrawalAmount);
     const currentBalance = bankData.balance || 0;
 
-    // Strict validation check: withdrawals only permitted once overall active investment packages have finished/ended.
-    const activeRunningPlans = dbInvestments.filter(inv => (inv.remainingDays || 0) > 0);
-    if (activeRunningPlans.length > 0) {
-      alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
+    if (amount > currentBalance) {
+      alert(`Withdrawal failed.\n\nYour requested withdrawal (₦${amount.toLocaleString()}) exceeds your available cash balance (₦${currentBalance.toLocaleString()}).`);
       return;
     }
 
@@ -396,10 +394,12 @@ export default function Transactions() {
   const compiledLedger: CombinedLedgerItem[] = [
     ...dbPurchases.map(t => {
       const isRef = t.category === 'referral';
+      const isResale = t.category === 'resale';
+      const isPositive = isRef || isResale;
       return {
         id: t.id,
-        description: t.description || (isRef ? 'Referral Reward' : 'Plan Subscription'),
-        amount: isRef ? t.amount : -t.amount,
+        description: t.description || (isResale ? 'Shares Resale Proceeds' : isRef ? 'Shareholder Referral Bonus' : 'Dangote Refinery Share Purchase'),
+        amount: isPositive ? t.amount : -t.amount,
         category: (t.category || 'purchase') as any,
         status: (t.status || 'approved') as any,
         date: t.dateString,

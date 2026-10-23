@@ -46,16 +46,18 @@ export default function FinanceNews() {
 
   const getCategoryColor = (cat: string) => {
     switch (cat?.toLowerCase()) {
-      case 'currency':
-        return 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200/50 dark:border-emerald-800/20';
-      case 'policy':
-        return 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200/50 dark:border-blue-800/20';
-      case 'stock market':
+      case 'ipo allotment':
         return 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200/50 dark:border-amber-800/20';
-      case 'inflation':
-        return 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200/50 dark:border-rose-800/20';
+      case 'refinery output':
+        return 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200/50 dark:border-emerald-800/20';
+      case 'crude supply':
+        return 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200/50 dark:border-blue-800/20';
+      case 'ngx equities':
+        return 'bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200/50 dark:border-red-800/20';
+      case 'dividends':
+        return 'bg-teal-100 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200/50 dark:border-teal-800/20';
       default:
-        return 'bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200/50 dark:border-purple-800/20';
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200/50 dark:border-slate-700/40';
     }
   };
 
@@ -63,13 +65,13 @@ export default function FinanceNews() {
     <div id="financial-market-news-card" className="p-5 bg-white dark:bg-slate-900 border border-slate-200/65 dark:border-slate-800/40 rounded-2xl mx-4 mt-6 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/40">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+          <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
             <Radio size={16} className="animate-pulse" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">Daily Economic Feed</h3>
+            <h3 className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">Refinery & IPO Market Dispatch</h3>
             <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1 mt-0.5">
-              <Sparkles size={10} className="text-yellow-500" /> Grounded with Google Search
+              <Sparkles size={10} className="text-amber-500" /> Real-time Lekki Complex & NGX Intelligence
             </span>
           </div>
         </div>

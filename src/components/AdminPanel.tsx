@@ -20,16 +20,27 @@ import {
   CheckCircle2,
   Lock,
   Bell,
-  ClipboardList
+  ClipboardList,
+  Coins,
+  Settings,
+  Save,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import EmptyState from './EmptyState';
+import { DANGOTE_ASSETS } from '../assets/dangoteAssets';
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'notifications' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'shares' | 'deposits' | 'withdrawals' | 'settings' | 'notifications' | 'audit'>('users');
   const [users, setUsers] = useState<any[]>([]);
+  const [allInvestments, setAllInvestments] = useState<any[]>([]);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [paymentLinkInput, setPaymentLinkInput] = useState('https://paystack.shop/pay/dangote_refinary_deposit');
+  const [ipoPriceInput, setIpoPriceInput] = useState('240');
+  const [depositFilter, setDepositFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [processingIds, setProcessingIds] = useState<Record<string, boolean>>({});
 
   const logAction = async (action: string, targetUserId: string, targetUserEmail: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO') => {
@@ -123,6 +134,22 @@ export default function AdminPanel() {
     }
 
     try {
+      const invQuery = await getDocs(collection(db, 'investments'));
+      setAllInvestments(invQuery.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.warn("Failed to load investments:", err);
+    }
+
+    try {
+      const cfgDoc = await getDoc(doc(db, 'system_config', 'deposit'));
+      if (cfgDoc.exists() && cfgDoc.data()?.paymentLink) {
+        setPaymentLinkInput(cfgDoc.data().paymentLink);
+      }
+    } catch (err) {
+      console.warn("Failed to load deposit config:", err);
+    }
+
+    try {
       const auditQuery = await getDocs(query(collection(db, 'admin_audit_logs'), orderBy('timestamp', 'desc')));
       setAuditLogs(auditQuery.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (err) {
@@ -148,14 +175,17 @@ export default function AdminPanel() {
       const depositData = depositSnap.data();
       if (depositData && depositData.status !== 'pending' && depositData.status !== undefined && depositData.status !== '') {
         alert(`This deposit has already been processed (current status: ${depositData.status}).`);
-        // update local state just in case
         setDeposits(deposits.map(d => d.id === id ? { ...d, status: depositData.status } : d));
         return;
       }
 
       const targetEmail = (userId || '').trim().toLowerCase();
-      // 2. Update deposit status to approved
-      await updateDoc(depositRef, { status: 'approved' });
+      // 2. Update deposit status to approved with review metadata
+      await updateDoc(depositRef, { 
+        status: 'approved',
+        approvedAt: serverTimestamp(),
+        reviewedBy: auth.currentUser?.email || 'admin'
+      });
       
       // 3. Increase user balance
       const q = query(collection(db, 'users'), where('email', '==', targetEmail));
@@ -165,15 +195,34 @@ export default function AdminPanel() {
           await updateDoc(doc(db, 'users', userDoc.id), { balance: increment(amount) });
           
           setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
-          // Sync local users list too
           setUsers(users.map(u => u.email?.toLowerCase() === targetEmail ? { ...u, balance: (u.balance || 0) + amount } : u));
           
+          // 4. Record approved transaction
+          await addDoc(collection(db, 'transactions'), {
+            userId: targetEmail,
+            description: `Deposit Credited (Paystack) - Admin Approved`,
+            amount: amount,
+            category: 'deposit',
+            status: 'approved',
+            date: new Date().toISOString().split('T')[0],
+            createdAt: serverTimestamp()
+          });
+
+          // 5. Send notification to user
+          await addDoc(collection(db, 'notifications'), {
+            title: 'Deposit Approved! 🎉',
+            message: `Your deposit of ₦${amount.toLocaleString('en-NG')} has been verified by the administrator and credited to your wallet balance. You can now subscribe to shares.`,
+            type: 'deposit',
+            target: targetEmail,
+            createdAt: serverTimestamp()
+          });
+
           await logAction('APPROVE_DEPOSIT', userDoc.id, targetEmail, `Admin approved deposit of ₦${amount.toLocaleString('en-NG')}`, 'INFO');
           
-          alert('Deposit approved successfully. User balance has been credited.');
+          alert(`Deposit approved successfully! ₦${amount.toLocaleString('en-NG')} credited to ${targetEmail}'s wallet.`);
       } else {
           setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
-          alert(`Deposit request approved successfully, but warning: User of email (${targetEmail}) was not found in the users database. Balance update skipped.`);
+          alert(`Deposit marked as approved, but user email (${targetEmail}) was not found in users database.`);
       }
       
       setSelectedDepositForReview(null);
@@ -189,8 +238,17 @@ export default function AdminPanel() {
     }
   };
 
-  const rejectDeposit = async (id: string) => {
+  const rejectDeposit = async (id: string, reasonPrompt?: string) => {
     if (processingIds[id]) return;
+    
+    const defaultReason = reasonPrompt || window.prompt(
+      "Enter reason for rejecting this deposit (or click OK for default):", 
+      "Transaction could not be verified in payment records"
+    );
+    if (defaultReason === null) return; // User pressed Cancel
+
+    const rejectionReason = defaultReason.trim() || "Transaction unverified";
+
     setProcessingIds(prev => ({ ...prev, [id]: true }));
     try {
       const depositRef = doc(db, 'deposits', id);
@@ -206,14 +264,30 @@ export default function AdminPanel() {
         return;
       }
 
-      const targetEmail = deposits.find(d => d.id === id)?.email || 'unknown';
-      // Update deposit status to rejected - balance is not modified
-      await updateDoc(depositRef, { status: 'rejected' });
-      setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'rejected' } : d));
+      const targetEmail = deposits.find(d => d.id === id)?.userId || deposits.find(d => d.id === id)?.email || 'unknown';
+      const depositAmount = deposits.find(d => d.id === id)?.amount || 0;
+
+      // Update deposit status to rejected with reason - balance is NOT modified
+      await updateDoc(depositRef, { 
+        status: 'rejected',
+        rejectionReason,
+        reviewedAt: serverTimestamp(),
+        reviewedBy: auth.currentUser?.email || 'admin'
+      });
+      setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'rejected', rejectionReason } : d));
+
+      // Notify the user of rejection
+      await addDoc(collection(db, 'notifications'), {
+        title: 'Deposit Unverified',
+        message: `Your deposit submission of ₦${depositAmount.toLocaleString('en-NG')} was rejected. Reason: ${rejectionReason}`,
+        type: 'warning',
+        target: targetEmail.toLowerCase(),
+        createdAt: serverTimestamp()
+      });
       
-      await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit of ₦${deposits.find(d => d.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'WARNING');
+      await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit of ₦${depositAmount.toLocaleString('en-NG')}. Reason: ${rejectionReason}`, 'WARNING');
       
-      alert('Deposit request has been rejected.');
+      alert(`Deposit request marked as rejected. Balance remains untouched.`);
       setSelectedDepositForReview(null);
     } catch (err) {
       console.error(err);
@@ -487,70 +561,111 @@ export default function AdminPanel() {
     }
   };
 
+  const handleSaveConfig = async () => {
+    setIsSavingConfig(true);
+    try {
+      await setDoc(doc(db, 'system_config', 'deposit'), {
+        paymentLink: paymentLinkInput.trim(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      alert('Settings updated successfully! Users opening the deposit modal will now see your new payment link.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to save settings: ' + err.message);
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 bg-slate-50 min-h-screen pb-24" id="admin-panel-root">
       
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4" id="admin-header-section">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span className="bg-indigo-600 text-white p-1.5 rounded-lg text-xs font-bold uppercase tracking-widest">Admin</span>
-            Control Workspace
-          </h2>
-          <p className="text-sm text-slate-500">Manage user accounts, transaction receipts, broadcasts, and live support channels</p>
+        <div className="flex items-center gap-3">
+          <div className="h-14 sm:h-16 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center shrink-0">
+            <img src={DANGOTE_ASSETS.logo} alt="Dangote Petroleum Refinery Logo" className="h-full w-auto object-contain max-w-[150px]" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="bg-red-600 text-white px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest">Admin</span>
+              Shareholder IPO Console
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500">Manage investors, share allotments, deposits, withdrawals, and gateway payment settings</p>
+          </div>
         </div>
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex rounded-xl bg-slate-200/50 p-1 mb-6 border border-slate-200/30 overflow-x-auto max-w-3xl" id="admin-tabs">
+      <div className="flex rounded-xl bg-slate-200/50 p-1 mb-6 border border-slate-200/30 overflow-x-auto max-w-4xl" id="admin-tabs">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
             activeTab === 'users' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
           id="tab-users-btn"
         >
-          <UsersIcon size={16} />
-          Users ({users.length})
+          <UsersIcon size={15} />
+          Investors ({users.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('shares')}
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+            activeTab === 'shares' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+          }`}
+          id="tab-shares-btn"
+        >
+          <Coins size={15} className="text-amber-500" />
+          Share Allotments ({allInvestments.length})
         </button>
         <button
           onClick={() => setActiveTab('deposits')}
-          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
             activeTab === 'deposits' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
           id="tab-deposits-btn"
         >
-          <ArrowDownCircle size={16} />
+          <ArrowDownCircle size={15} />
           Deposits ({deposits.length})
         </button>
         <button
           onClick={() => setActiveTab('withdrawals')}
-          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
             activeTab === 'withdrawals' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
           id="tab-withdrawals-btn"
         >
-          <CreditCard size={16} />
+          <CreditCard size={15} />
           Withdrawals ({withdrawals.length})
         </button>
         <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+            activeTab === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+          }`}
+          id="tab-settings-btn"
+        >
+          <Settings size={15} />
+          IPO Gateway Settings
+        </button>
+        <button
           onClick={() => setActiveTab('notifications')}
-          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
             activeTab === 'notifications' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
           id="tab-notifications-btn"
         >
-          <Bell size={16} />
+          <Bell size={15} />
           Broadcasts
         </button>
         <button
           onClick={() => setActiveTab('audit')}
-          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-4 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
+          className={`flex items-center justify-center gap-2 flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition duration-200 whitespace-nowrap ${
             activeTab === 'audit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
           }`}
           id="tab-audit-btn"
         >
-          <ClipboardList size={16} />
-          Audit Logs ({auditLogs.length})
+          <ClipboardList size={15} />
+          Audit ({auditLogs.length})
         </button>
       </div>
 
@@ -699,6 +814,32 @@ export default function AdminPanel() {
             className="space-y-4"
             id="panel-deposits-section"
           >
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-slate-200">
+              <div className="flex gap-1 text-xs">
+                {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setDepositFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg font-bold capitalize transition ${
+                      depositFilter === f
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {f} ({
+                      f === 'all' ? deposits.length :
+                      deposits.filter(d => (d.status || 'pending') === f).length
+                    })
+                  </button>
+                ))}
+              </div>
+
+              <span className="text-[11px] text-slate-500 font-medium">
+                Admin approval updates investor wallet balance in real-time
+              </span>
+            </div>
+
             {deposits.length === 0 ? (
               <EmptyState title="No Deposit Logs" message="There are currently no logged deposit claims in the database." />
             ) : (
@@ -707,23 +848,40 @@ export default function AdminPanel() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-xs uppercase font-extrabold tracking-wider">
-                        <th className="p-4">Sender Email</th>
-                        <th className="p-4">Fund Amount</th>
-                        <th className="p-4">Timestamp</th>
-                        <th className="p-4">Verify Status</th>
+                        <th className="p-4">Investor Identity</th>
+                        <th className="p-4">Deposit Amount</th>
+                        <th className="p-4">Timestamp & Method</th>
+                        <th className="p-4">Review Status</th>
                         <th className="p-4">Receipt Slip</th>
-                        <th className="p-4 text-right">Actions</th>
+                        <th className="p-4 text-right">Admin Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                      {deposits.map((d) => (
+                      {deposits
+                        .filter(d => depositFilter === 'all' ? true : (d.status || 'pending') === depositFilter)
+                        .map((d) => (
                         <tr key={d.id} className="hover:bg-slate-50/50 transition duration-150">
-                          <td className="p-4 font-medium text-slate-900">{d.userId}</td>
                           <td className="p-4">
-                            <span className="font-extrabold text-slate-900 font-mono">${d.amount?.toLocaleString()}</span>
+                            <div>
+                              <p className="font-bold text-slate-900 leading-tight">{d.userId || d.email}</p>
+                              {d.depositorName && (
+                                <p className="text-xs text-slate-500">{d.depositorName}</p>
+                              )}
+                              {d.reference && (
+                                <p className="text-[10px] text-slate-400 font-mono mt-0.5">Ref: {d.reference}</p>
+                              )}
+                            </div>
                           </td>
-                          <td className="p-4 text-xs text-slate-500 font-mono">
-                            {d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
+                          <td className="p-4">
+                            <span className="font-extrabold text-slate-900 font-mono text-sm">
+                              ₦ {(d.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                          <td className="p-4 text-xs text-slate-500">
+                            <div className="space-y-0.5">
+                              <p className="font-mono">{d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toLocaleString() : 'N/A'}</p>
+                              <span className="inline-block px-1.5 py-0.2 bg-slate-100 rounded text-[10px] text-slate-600 font-semibold">{d.paymentMethod || 'Paystack'}</span>
+                            </div>
                           </td>
                           <td className="p-4">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full ${
@@ -734,18 +892,21 @@ export default function AdminPanel() {
                               {d.status === 'approved' && <CheckCircle2 size={12} />}
                               {d.status === 'rejected' && <XCircle size={12} />}
                               {d.status === 'pending' && <Clock size={12} />}
-                              <span className="capitalize">{d.status}</span>
+                              <span className="capitalize">{d.status || 'pending'}</span>
                             </span>
+                            {d.rejectionReason && (
+                              <p className="text-[10px] text-red-500 mt-1 max-w-xs">{d.rejectionReason}</p>
+                            )}
                           </td>
                           <td className="p-4">
                             {d.receiptUrl ? (
                               <button 
-                                onClick={() => setSelectedReceiptUrl(d.receiptUrl)}
-                                className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-lg"
+                                onClick={() => setSelectedDepositForReview(d)}
+                                className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 border border-indigo-100 px-2.5 py-1.5 rounded-lg active:scale-95 transition"
                                 id={`view-receipt-btn-${d.id}`}
                               >
                                 <Eye size={12} />
-                                View Receipt
+                                Inspect Slip
                               </button>
                             ) : (
                               <span className="text-xs text-slate-400 italic">No Upload</span>
@@ -757,7 +918,7 @@ export default function AdminPanel() {
                                 <button
                                   onClick={() => approveDeposit(d.id, d.userId, d.amount)}
                                   disabled={processingIds[d.id]}
-                                  className={`flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                   id={`approve-deposit-${d.id}`}
                                 >
                                   <Check size={14} />
@@ -766,7 +927,7 @@ export default function AdminPanel() {
                                 <button
                                   onClick={() => rejectDeposit(d.id)}
                                   disabled={processingIds[d.id]}
-                                  className={`flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95 ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                   id={`reject-deposit-${d.id}`}
                                 >
                                   <XCircle size={14} />
@@ -775,15 +936,14 @@ export default function AdminPanel() {
                                 <button
                                   onClick={() => deleteDeposit(d.id)}
                                   disabled={processingIds[d.id]}
-                                  className={`flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
+                                  className={`flex items-center gap-1 text-xs font-bold bg-red-100 hover:bg-red-200 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg shadow-sm transition ${processingIds[d.id] ? 'opacity-55 cursor-not-allowed' : ''}`}
                                 >
-                                  <Trash2 size={14} />
-                                  Delete
+                                  <Trash2 size={13} />
                                 </button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-end gap-2">
-                                <span className="text-xs text-slate-400 font-semibold px-2">Completed</span>
+                                <span className="text-xs text-slate-400 font-semibold px-2 capitalize">{d.status}</span>
                                 <button
                                   onClick={() => deleteDeposit(d.id)}
                                   className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition"
@@ -1041,6 +1201,178 @@ export default function AdminPanel() {
           </motion.div>
         )}
 
+        {/* SHARES / ALLOTMENTS PANEL */}
+        {activeTab === 'shares' && (
+          <motion.div
+            key="shares-panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+            id="panel-shares-section"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Shares Issued</span>
+                <span className="text-xl font-black text-slate-900 font-mono">
+                  {allInvestments.reduce((sum, i) => sum + (i.sharesCount || 0), 0).toLocaleString()} Units
+                </span>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Capital Allocated</span>
+                <span className="text-xl font-black text-emerald-600 font-mono">
+                  ₦ {allInvestments.reduce((sum, i) => sum + (i.amount || 0), 0).toLocaleString('en-NG')}
+                </span>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Active Allotment Lots</span>
+                <span className="text-xl font-black text-amber-600 font-mono">
+                  {allInvestments.filter(i => i.status === 'active').length} of {allInvestments.length}
+                </span>
+              </div>
+            </div>
+
+            {allInvestments.length === 0 ? (
+              <EmptyState title="No Shares Issued Yet" message="No shareholders have purchased Dangote Refinery IPO shares yet." />
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="font-bold text-sm text-slate-900">Registered Share Allotments</h3>
+                  <span className="text-xs text-slate-500">{allInvestments.length} Records</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {allInvestments.map((inv) => (
+                    <div key={inv.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">{inv.productName || 'Share Allotment'}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            inv.status === 'active' 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {inv.status || 'Active'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2">
+                          <span>Investor: <strong className="text-slate-800">{inv.userId}</strong></span>
+                          <span>·</span>
+                          <span>Cert: <strong className="font-mono text-slate-800">#{inv.certificateNumber || inv.id.slice(0, 8)}</strong></span>
+                          <span>·</span>
+                          <span>Units: <strong className="font-mono text-amber-600">{(inv.sharesCount || Math.floor((inv.amount || 0) / 240)).toLocaleString()} Shares</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Value</span>
+                        <span className="font-mono font-bold text-sm text-slate-900">
+                          ₦ {(inv.amount || 0).toLocaleString('en-NG')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* SETTINGS PANEL (PAYMENT LINK & CONFIG) */}
+        {activeTab === 'settings' && (
+          <motion.div
+            key="settings-panel"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4 max-w-2xl"
+            id="panel-settings-section"
+          >
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+              <div className="flex items-start gap-3 border-b border-slate-100 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 shrink-0">
+                  <Settings size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Deposit & Payment Gateway Settings</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure the active payment gateway link for investor deposits. Once updated here, all users clicking "Proceed to Online Checkout" will be directed to this link.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Deposit Payment Gateway URL (Paystack / Moniepoint / Checkout)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={paymentLinkInput}
+                      onChange={(e) => setPaymentLinkInput(e.target.value)}
+                      placeholder="https://paystack.shop/pay/your-link"
+                      className="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                    />
+                    {paymentLinkInput && (
+                      <a
+                        href={paymentLinkInput}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+                        title="Test Link"
+                      >
+                        <ExternalLink size={16} />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    When you receive your live payment link, paste it here and click Save.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Current IPO Offer Price (NGN)
+                    </label>
+                    <input
+                      type="number"
+                      value={ipoPriceInput}
+                      onChange={(e) => setIpoPriceInput(e.target.value)}
+                      className="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-900 focus:border-red-500 outline-none font-bold"
+                    />
+                    <span className="text-[10px] text-slate-400">Baseline offer price per share</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Refinery Capacity Benchmark
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value="650,000 Barrels / Day"
+                      className="w-full border border-slate-200 bg-slate-50 rounded-xl p-3 text-xs font-mono text-slate-600 outline-none"
+                    />
+                    <span className="text-[10px] text-slate-400">Lekki Free Zone, Lagos State</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={handleSaveConfig}
+                    disabled={isSavingConfig}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-6 py-3 rounded-xl transition shadow-md active:scale-95 flex items-center gap-2"
+                  >
+                    <Save size={15} />
+                    <span>{isSavingConfig ? 'Saving Settings...' : 'Save Payment & Portal Settings'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
       </AnimatePresence>
 
       {/* Edit User Modal Overlay */}
@@ -1200,6 +1532,156 @@ export default function AdminPanel() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Deposit Inspection & Judgment Review Modal */}
+      <AnimatePresence>
+        {selectedDepositForReview && (
+          <div className="fixed inset-0 bg-slate-900/80 z-[120] flex items-center justify-center p-4 backdrop-blur-sm" id="deposit-review-modal">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200"
+            >
+              {/* Modal Header */}
+              <div className="bg-slate-900 px-5 py-4 text-white flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <span className="bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2 py-0.5 rounded">
+                    Admin Review
+                  </span>
+                  <h3 className="font-bold text-sm text-white">Deposit Receipt Judgment</h3>
+                </div>
+                <button
+                  onClick={() => setSelectedDepositForReview(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 overflow-y-auto space-y-4 text-slate-800 text-xs">
+                {/* Receipt Image */}
+                <div className="bg-slate-950 rounded-xl p-2 border border-slate-800 flex items-center justify-center relative group">
+                  {selectedDepositForReview.receiptUrl ? (
+                    <img
+                      src={selectedDepositForReview.receiptUrl}
+                      alt="Deposit Receipt"
+                      className="max-h-64 max-w-full object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="py-12 text-center text-slate-400">
+                      No receipt image uploaded
+                    </div>
+                  )}
+                  {selectedDepositForReview.receiptUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReceiptUrl(selectedDepositForReview.receiptUrl)}
+                      className="absolute bottom-3 right-3 bg-slate-900/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-700 shadow flex items-center gap-1 hover:bg-black transition"
+                    >
+                      <Eye size={12} />
+                      Full Screen Zoom
+                    </button>
+                  )}
+                </div>
+
+                {/* Claim Information Grid */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Claimant Account</span>
+                    <span className="font-bold text-slate-900 text-xs break-all block">
+                      {selectedDepositForReview.userId || selectedDepositForReview.email}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Depositor Name</span>
+                    <span className="font-semibold text-slate-800 text-xs block">
+                      {selectedDepositForReview.depositorName || 'Not specified'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Deposit Claim Amount</span>
+                    <span className="font-mono font-black text-emerald-600 text-base block">
+                      ₦ {(selectedDepositForReview.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Review Status</span>
+                    <span className={`inline-flex items-center gap-1 font-bold text-xs uppercase px-2 py-0.5 rounded-full ${
+                      selectedDepositForReview.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                      selectedDepositForReview.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedDepositForReview.status || 'pending'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Payment Gateway</span>
+                    <span className="font-medium text-slate-700 text-xs">
+                      {selectedDepositForReview.paymentMethod || 'Paystack Official'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Reference / Narration</span>
+                    <span className="font-mono text-slate-700 text-xs">
+                      {selectedDepositForReview.reference || 'None provided'}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedDepositForReview.rejectionReason && (
+                  <div className="bg-red-50 border border-red-200 p-3 rounded-xl text-xs text-red-700">
+                    <strong>Rejection Reason:</strong> {selectedDepositForReview.rejectionReason}
+                  </div>
+                )}
+              </div>
+
+              {/* Judgment Action Buttons */}
+              <div className="bg-slate-50 px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDepositForReview(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 transition text-xs"
+                >
+                  Close
+                </button>
+
+                {selectedDepositForReview.status === 'pending' ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={processingIds[selectedDepositForReview.id]}
+                      onClick={() => rejectDeposit(selectedDepositForReview.id)}
+                      className="px-4 py-2.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-bold transition text-xs border border-red-200 flex items-center gap-1"
+                    >
+                      <XCircle size={14} />
+                      Reject Deposit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={processingIds[selectedDepositForReview.id]}
+                      onClick={() => approveDeposit(
+                        selectedDepositForReview.id, 
+                        selectedDepositForReview.userId, 
+                        selectedDepositForReview.amount
+                      )}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition text-xs shadow-md shadow-emerald-900/20 flex items-center gap-1"
+                    >
+                      <Check size={14} />
+                      Accept & Credit ₦{(selectedDepositForReview.amount || 0).toLocaleString('en-NG')}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 font-medium">
+                    This request has been resolved as <strong className="capitalize text-slate-800">{selectedDepositForReview.status}</strong>.
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}

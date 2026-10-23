@@ -27,6 +27,7 @@ import {
   Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DANGOTE_ASSETS } from '../assets/dangoteAssets';
 
 const banks = [
   "Access Bank", "Zenith Bank", "GTBank", "First Bank", "UBA", "Sterling Bank",
@@ -91,8 +92,8 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
     } else {
       // Elegant step-by-step guides for custom setups or Apple user agents
       alert(
-        "📱 OneFundz Companion App Setup Guide\n\n" +
-        "1. Open OneFundz inside Google Chrome or Apple Safari.\n" +
+        "📱 Dangote Refinery IPO App Setup Guide\n\n" +
+        "1. Open Dangote Refinery IPO inside Google Chrome or Apple Safari.\n" +
         "2. Tap the 'Share' button (Safari) or the 'Menu' dots icon (Chrome).\n" +
         "3. Select 'Add to Home Screen' or 'Install App' from the listed options.\n\n" +
         "Enjoy rapid 1-tap launcher access, smooth full-screen views, and lightning-fast loading."
@@ -407,13 +408,14 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
     setIsDepositSubmitting(true);
     try {
       await addDoc(collection(db, 'deposits'), {
-        userId: auth.currentUser.email,
+        userId: auth.currentUser.email.toLowerCase(),
         amount: amtFloat,
         receiptUrl: depositReceiptUrl,
+        paymentMethod: 'Paystack',
         status: 'pending',
         createdAt: serverTimestamp()
       });
-      alert('Deposit submitted successfully! It will be reviewed and approved by administrators within a short timeframe.');
+      alert('Deposit submitted successfully! It will be reviewed and approved by administrators before your balance is updated.');
       
       // Reset form and return
       setDepositAmount('');
@@ -466,12 +468,9 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
 
     setIsWithdrawalSubmitting(true);
     try {
-      // Check if any of their active investment packages are still running (remainingDays > 0)
-      const q = query(collection(db, 'investments'), where('userId', '==', auth.currentUser.email.toLowerCase()));
-      const snap = await getDocs(q);
-      const activeRunningDocs = snap.docs.filter(doc => (doc.data().remainingDays || 0) > 0);
-      if (activeRunningDocs.length > 0) {
-        alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
+      // Verify sufficient liquid cash balance
+      if (amt > userData.balance) {
+        alert(`Withdrawal failed.\n\nYour requested amount (₦${amt.toLocaleString()}) exceeds your available liquid balance (₦${userData.balance.toLocaleString()}). If you hold shares, resell some shares first to credit your available cash balance.`);
         setIsWithdrawalSubmitting(false);
         return;
       }
@@ -570,7 +569,12 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
                 </div>
               </motion.div>
               
-              <h3 className="font-extrabold text-lg text-white mb-0.5">{userData.userName || 'ONEFUNDZ Member'}</h3>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/60 border border-amber-500/30 text-amber-300 text-[10px] font-bold mb-2 shadow-sm">
+                <img src={DANGOTE_ASSETS.logo} alt="Dangote Logo" className="h-4 w-auto rounded object-contain bg-white px-1 py-0.5" />
+                <span>Dangote Petroleum Refinery Shareholder</span>
+              </div>
+              
+              <h3 className="font-extrabold text-lg text-white mb-0.5">{userData.userName || 'Dangote Refinery Shareholder'}</h3>
               <p className="text-[11px] text-purple-200 opacity-80 font-mono mb-4">{userData.email}</p>
 
               {/* Real-time Dynamic Portfolio Cash balance indicator */}
@@ -976,7 +980,7 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
               </p>
               
               <a 
-                href="https://paystack.shop/pay/onefundz" 
+                href="https://paystack.shop/pay/dangote_refinary_deposit" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-xl text-xs font-bold shadow-md shadow-green-950/20 transition active:scale-[0.98]"

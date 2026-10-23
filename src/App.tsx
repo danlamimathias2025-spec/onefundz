@@ -18,6 +18,7 @@ import {
   Share2,
   History,
   WifiOff,
+  Coins,
 } from "lucide-react";
 import Header from "./components/Header";
 import AssetBalanceCard from "./components/AssetBalanceCard";
@@ -34,6 +35,10 @@ import QuickActionsFAB from "./components/QuickActionsFAB";
 import DailyGrowthIndicator from "./components/DailyGrowthIndicator";
 import InvestmentBreakdownChart from "./components/InvestmentBreakdownChart";
 import DepositModal from "./components/DepositModal";
+import ResellSharesModal from "./components/ResellSharesModal";
+import BuyMoreSharesModal from "./components/BuyMoreSharesModal";
+import ShareholderPortfolio from "./components/ShareholderPortfolio";
+import { DANGOTE_IPO_PRICE } from "./data";
 import FinanceNews from "./components/FinanceNews";
 import GuidedTour from "./components/GuidedTour";
 import EditProfileModal from "./components/EditProfileModal";
@@ -64,6 +69,9 @@ export default function App() {
     () => localStorage.getItem("theme") === "dark",
   );
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+  const [isResellModalOpen, setIsResellModalOpen] = useState(false);
+  const [isBuyMoreModalOpen, setIsBuyMoreModalOpen] = useState(false);
+  const [targetResellHoldingId, setTargetResellHoldingId] = useState<string | undefined>(undefined);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [forceStartTour, setForceStartTour] = useState(false);
   const [mineInitialView, setMineInitialView] = useState<
@@ -438,13 +446,17 @@ export default function App() {
   const isAdmin = user.email?.toLowerCase() === "danlamimathias2025@gmail.com";
   const balanceVal = userData?.balance || 0;
 
-  const projectedValueVal = realInvestments
-    .filter((i) => i.status === "active")
-    .reduce(
-      (sum, inv) =>
-        sum + (inv.dailyPayout || 0) * Math.max(0, inv.remainingDays || 0),
-      0,
-    );
+  const activeInvestments = realInvestments.filter((i) => i.status === "active");
+  const totalSharesCount = activeInvestments.reduce((sum, inv) => {
+    return sum + (inv.sharesCount || Math.floor((inv.amount || 0) / DANGOTE_IPO_PRICE));
+  }, 0);
+  const totalSharesValue = totalSharesCount * DANGOTE_IPO_PRICE;
+
+  const projectedValueVal = activeInvestments.reduce(
+    (sum, inv) =>
+      sum + (inv.dailyPayout || 0) * Math.max(0, inv.remainingDays || 0),
+    0,
+  );
 
   return (
     <div className="bg-white dark:bg-slate-950 min-h-screen font-sans pb-20 text-slate-900 dark:text-slate-100">
@@ -504,7 +516,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 pt-2 px-4 pb-4 border-b border-slate-100 dark:border-slate-900/60">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 pt-2 px-3 sm:px-4 pb-4 border-b border-slate-100 dark:border-slate-900/60">
             <button
               onClick={() => setIsDepositModalOpen(true)}
               className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800"
@@ -512,6 +524,15 @@ export default function App() {
               <ArrowDownCircle className="w-5 h-5 text-emerald-500 dark:text-emerald-400 mb-1.5" />
               <span className="text-[9px] font-medium text-slate-600 dark:text-slate-300">
                 Deposit
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab("Portfolio")}
+              className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors border border-transparent dark:border-slate-800"
+            >
+              <Coins className="w-5 h-5 text-amber-500 dark:text-amber-400 mb-1.5" />
+              <span className="text-[9px] font-medium text-slate-600 dark:text-slate-300">
+                My Shares
               </span>
             </button>
             <button
@@ -557,31 +578,37 @@ export default function App() {
               <AssetBalanceCard
                 balance={balanceVal}
                 projectedValue={projectedValueVal}
+                totalSharesCount={totalSharesCount}
+                totalSharesValue={totalSharesValue}
               />
               <DailyGrowthIndicator />
+
+              <ShareholderPortfolio
+                investments={realInvestments}
+                userBalance={balanceVal}
+                onOpenBuyMore={() => setIsBuyMoreModalOpen(true)}
+                onOpenResell={(targetId) => {
+                  setTargetResellHoldingId(targetId);
+                  setIsResellModalOpen(true);
+                }}
+                onOpenWithdraw={() => {
+                  setMineInitialView("withdraw");
+                  setActiveTab("Mine");
+                }}
+                onOpenDeposit={() => setIsDepositModalOpen(true)}
+              />
+
               <PerformanceChart investments={realInvestments} />
 
               <FinanceNews />
 
-              <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/40 rounded-xl mt-4 shadow-xs mx-4">
-                <h3 className="font-bold text-sm mb-3">Yield Distribution</h3>
-                {realInvestments.length > 0 ? (
-                  <div className="flex flex-col items-center justify-center py-4">
-                    <InvestmentBreakdownChart investments={realInvestments} />
-                    <p className="text-[10px] text-slate-400 mt-3">
-                      Distribution based on plan subscription capital
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-slate-400 text-xs">
-                    No active packages yet. Scroll down and subscribe to a VIP
-                    plan to initiate daily profit payouts!
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6">
-                <ProductList userBalance={balanceVal} />
+              <div className="mt-4">
+                <ProductList 
+                  userBalance={balanceVal} 
+                  onOpenDeposit={() => setIsDepositModalOpen(true)}
+                  onOpenCustomBuy={() => setIsBuyMoreModalOpen(true)}
+                  onOpenPortfolio={() => setActiveTab("Portfolio")}
+                />
               </div>
 
               <QuickActionsFAB
@@ -590,10 +617,62 @@ export default function App() {
                   setMineInitialView("withdraw");
                   setActiveTab("Mine");
                 }}
+                onBuySharesClick={() => setIsBuyMoreModalOpen(true)}
+                onResellSharesClick={() => {
+                  setTargetResellHoldingId(undefined);
+                  setIsResellModalOpen(true);
+                }}
               />
             </>
           )}
         </>
+      )}
+
+      {activeTab === "Portfolio" && (
+        <div className="pb-24 pt-2">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-900/60 mb-2">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Coins className="w-5 h-5 text-amber-500" />
+                Dangote Refinery Shareholder Portfolio
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Monitor your allotted shares, digital certificates, dividends & CSCS clearing
+              </p>
+            </div>
+            <button
+              onClick={() => setIsBuyMoreModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+            >
+              + Buy Shares
+            </button>
+          </div>
+
+          <AssetBalanceCard
+            balance={balanceVal}
+            projectedValue={projectedValueVal}
+            totalSharesCount={totalSharesCount}
+            totalSharesValue={totalSharesValue}
+          />
+          <DailyGrowthIndicator />
+
+          <ShareholderPortfolio
+            investments={realInvestments}
+            userBalance={balanceVal}
+            onOpenBuyMore={() => setIsBuyMoreModalOpen(true)}
+            onOpenResell={(targetId) => {
+              setTargetResellHoldingId(targetId);
+              setIsResellModalOpen(true);
+            }}
+            onOpenWithdraw={() => {
+              setMineInitialView("withdraw");
+              setActiveTab("Mine");
+            }}
+            onOpenDeposit={() => setIsDepositModalOpen(true)}
+          />
+
+          <PerformanceChart investments={realInvestments} />
+        </div>
       )}
 
       {activeTab === "Transactions" && <Transactions />}
@@ -612,7 +691,32 @@ export default function App() {
 
       <AnimatePresence>
         {isDepositModalOpen && (
-          <DepositModal onClose={() => setIsDepositModalOpen(false)} />
+          <DepositModal 
+            onClose={() => setIsDepositModalOpen(false)} 
+            onOpenPortfolio={() => {
+              setIsDepositModalOpen(false);
+              setActiveTab("Portfolio");
+            }}
+          />
+        )}
+        {isResellModalOpen && (
+          <ResellSharesModal
+            investments={realInvestments}
+            userBalance={balanceVal}
+            targetInvestmentId={targetResellHoldingId}
+            onClose={() => {
+              setIsResellModalOpen(false);
+              setTargetResellHoldingId(undefined);
+            }}
+          />
+        )}
+        {isBuyMoreModalOpen && (
+          <BuyMoreSharesModal
+            userBalance={balanceVal}
+            onClose={() => setIsBuyMoreModalOpen(false)}
+            onOpenDeposit={() => setIsDepositModalOpen(true)}
+            onSuccess={() => setActiveTab("Portfolio")}
+          />
         )}
         {isEditProfileOpen && (
           <EditProfileModal
@@ -659,6 +763,25 @@ export default function App() {
         </motion.button>
 
         <motion.button
+          onClick={() => setActiveTab("Portfolio")}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.92 }}
+          className={`relative px-3 sm:px-4 py-1.5 flex flex-col items-center justify-center rounded-xl transition-colors duration-300 ${activeTab === "Portfolio" ? "text-amber-400 font-bold" : "hover:text-slate-200"}`}
+        >
+          {activeTab === "Portfolio" && (
+            <motion.div
+              layoutId="nav-bg-glow"
+              className="absolute inset-x-1 inset-y-0.5 bg-amber-500/10 dark:bg-amber-400/8 border border-amber-500/20 rounded-xl -z-10"
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            />
+          )}
+          <Coins size={19} />
+          <span className="text-[10px] mt-1 font-medium tracking-tight font-sans">
+            My Shares
+          </span>
+        </motion.button>
+
+        <motion.button
           onClick={() => setActiveTab("Transactions")}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.92 }}
@@ -681,18 +804,18 @@ export default function App() {
           onClick={() => setActiveTab("Coop")}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.92 }}
-          className={`relative px-4 py-1.5 flex flex-col items-center justify-center rounded-xl transition-colors duration-300 ${activeTab === "Coop" ? "text-yellow-400 font-bold" : "hover:text-slate-200"}`}
+          className={`relative px-4 py-1.5 flex flex-col items-center justify-center rounded-xl transition-colors duration-300 ${activeTab === "Coop" ? "text-amber-400 font-bold" : "hover:text-slate-200"}`}
         >
           {activeTab === "Coop" && (
             <motion.div
               layoutId="nav-bg-glow"
-              className="absolute inset-x-1 inset-y-0.5 bg-yellow-500/10 dark:bg-yellow-400/8 border border-yellow-500/20 rounded-xl -z-10"
+              className="absolute inset-x-1 inset-y-0.5 bg-amber-500/10 dark:bg-amber-400/8 border border-amber-500/20 rounded-xl -z-10"
               transition={{ type: "spring", stiffness: 380, damping: 28 }}
             />
           )}
           <Users size={19} />
           <span className="text-[10px] mt-1 font-medium tracking-tight font-sans">
-            Coop
+            Syndicate
           </span>
         </motion.button>
 

@@ -1,13 +1,13 @@
 {
-  "name": "OneFundz Mutual Cooperative",
-  "short_name": "OneFundz",
-  "description": "A modern, minimalist mobile investment and wealth management dashboard.",
+  "name": "Dangote Refinery IPO Portal",
+  "short_name": "Dangote IPO",
+  "description": "Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. Buy, manage, and resell shares directly.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090d16",
-  "theme_color": "#eab308",
+  "background_color": "#0a1931",
+  "theme_color": "#0a1931",
   "orientation": "portrait-primary",
-  "categories": ["finance", "productivity"],
+  "categories": ["finance", "business"],
   "icons": [
     {
       "src": "/icon.svg",
