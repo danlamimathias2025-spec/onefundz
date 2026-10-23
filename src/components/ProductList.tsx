@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { db, auth } from '@/src/lib/firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import { useToast } from '../lib/toast';
-import { ipoShareTranches, DANGOTE_IPO_PRICE, refineryFacts } from '../data';
+import { ipoShareTranches, DANGOTE_IPO_PRICE, refineryFacts, DANGOTE_IPO_ISSUER, DANGOTE_IPO_MIN_SHARES, DANGOTE_IPO_MIN_COST } from '../data';
 import { ShareTranche } from '../types';
 import { 
   Building2, 
@@ -17,7 +17,8 @@ import {
   Zap,
   Info,
   Maximize2,
-  X
+  X,
+  Clock
 } from 'lucide-react';
 import { DANGOTE_ASSETS } from '../assets/dangoteAssets';
 
@@ -220,8 +221,8 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
             <Flame size={12} className="text-amber-300" />
             <span>650,000 BPD · Lekki Free Zone</span>
           </div>
-          <div className="absolute top-3 right-3 bg-slate-950/80 backdrop-blur-md text-amber-400 font-bold text-[10px] px-2.5 py-1 rounded-full border border-amber-500/30">
-            Offer Price: ₦240 / Share
+          <div className="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-md text-amber-400 font-extrabold text-[10px] sm:text-xs px-3 py-1 rounded-full border border-amber-500/40 shadow-lg">
+            Offer Price: ₦525 / Share
           </div>
         </div>
 
@@ -231,7 +232,7 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
             <span className="bg-amber-400/20 text-amber-300 text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-400/30">Pre-IPO Tranches</span>
           </h2>
           <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-            Direct public participation in Africa’s largest energy infrastructure asset before official Nigerian Exchange (NGX) dual-listing. Instant digital e-certificate and guaranteed secondary market resale liquidity.
+            Direct public participation in Africa’s largest energy infrastructure asset. 4.1 billion ordinary shares offered at ₦525 per share to raise ₦2.15 trillion ($1.6 billion). Instant digital share certificates and CSCS clearing.
           </p>
 
           {/* Quick Refinery Facts Strip */}
@@ -246,6 +247,67 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
         </div>
       </div>
 
+      {/* OFFICIAL KEY OFFER DETAILS CARD */}
+      <div className="bg-gradient-to-br from-[#0c1f3f] via-[#09172e] to-[#061020] rounded-2xl p-4 sm:p-5 border-2 border-amber-500/40 shadow-xl space-y-3.5 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-amber-500/20 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="bg-red-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">Official Prospectus</span>
+              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Public Subscription</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-white mt-1">
+              Key Offer Details
+            </h3>
+            <p className="text-[11px] text-slate-300">
+              {DANGOTE_IPO_ISSUER}
+            </p>
+          </div>
+          <div className="bg-amber-400/10 border border-amber-400/30 rounded-xl p-2.5 sm:text-right shrink-0">
+            <span className="text-[10px] text-amber-300 font-medium block">Official Offer Price</span>
+            <span className="text-xl font-black text-amber-400 font-mono">₦525.00 <span className="text-xs text-slate-300 font-normal">/ Share</span></span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-slate-400 block font-medium">Total Offering</span>
+            <span className="text-xs sm:text-sm font-black text-white block mt-0.5">4.1 Billion Shares</span>
+            <span className="text-[9px] text-emerald-400 font-semibold block">~₦2.15T ($1.6B USD)</span>
+          </div>
+
+          <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-slate-400 block font-medium">Min Subscription</span>
+            <span className="text-xs sm:text-sm font-black text-amber-400 block mt-0.5">10 Shares</span>
+            <span className="text-[9px] text-slate-300 block">Cost: ₦5,250</span>
+          </div>
+
+          <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-slate-400 block font-medium">Opening Date</span>
+            <span className="text-xs sm:text-sm font-black text-white block mt-0.5">Sept 14, 2026</span>
+            <span className="text-[9px] text-emerald-400 font-semibold block">Now Open</span>
+          </div>
+
+          <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <span className="text-[10px] text-slate-400 block font-medium">Target Demographics</span>
+            <span className="text-xs sm:text-sm font-black text-white block mt-0.5">10 Million</span>
+            <span className="text-[9px] text-slate-300 block">Retail Investors</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] pt-1 text-slate-300">
+          <div className="flex items-center gap-1.5 text-amber-300">
+            <Clock size={13} className="shrink-0" />
+            <span>Closing Date: <strong>Until further notice</strong></span>
+          </div>
+          <button 
+            onClick={onOpenCustomBuy}
+            className="text-xs text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+          >
+            Apply for Shares →
+          </button>
+        </div>
+      </div>
+
       {/* CUSTOM SHARE CALCULATOR QUICK BOX */}
       <div className="bg-gradient-to-r from-[#0d2552] to-[#0a1931] p-4 rounded-2xl border border-amber-500/30 text-white shadow-lg space-y-3">
         <div className="flex items-center justify-between">
@@ -253,7 +315,7 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
             <Calculator size={16} className="text-amber-400" />
             <h3 className="font-bold text-xs text-white uppercase tracking-wider">Custom Share Calculator</h3>
           </div>
-          <span className="text-[10px] text-amber-300 font-mono">₦240.00 / Share</span>
+          <span className="text-[10px] text-amber-300 font-mono">₦525.00 / Share</span>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-2.5">
@@ -543,7 +605,7 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
               tag: "NGX Ticker: DPR-IPO",
               image: DANGOTE_ASSETS.badgeRefinery,
               specs: [
-                { label: "Offer Price", value: "₦240.00 / Ordinary Share" },
+                { label: "Offer Price", value: "₦525.00 / Ordinary Share" },
                 { label: "Exchange", value: "Nigerian Exchange Group (NGX) + Dual LSE" },
                 { label: "Processing Units", value: "RFCC, Hydrocracker, Alkylation Train" },
                 { label: "Project Valuation", value: "> $20,000,000,000 USD" }
@@ -577,7 +639,7 @@ export default function ProductList({ userBalance, onOpenDeposit, onOpenCustomBu
               </div>
               <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
                 <span className="text-slate-400">Offer Price</span>
-                <span className="font-bold text-red-500">₦240.00 / Unit</span>
+                <span className="font-bold text-red-500">₦525.00 / Unit</span>
               </div>
             </div>
           </div>

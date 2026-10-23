@@ -58,6 +58,12 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use((req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
+  });
   app.use(express.static(path.join(process.cwd(), "public")));
 
   // Economic Financial Market news endpoint with Google Search Grounding & fallback
@@ -73,7 +79,7 @@ async function startServer() {
 
     try {
       const ai = getAiClient();
-      const prompt = `Find and compile the latest core news developments regarding Dangote Petroleum Refinery, Dangote Group, Nigerian stock market (NGX), energy equities, crude oil supply in Naira, and the upcoming Dangote Refinery Initial Public Offering (IPO) for ${new Date().toDateString()}.
+      const prompt = `Find and compile the latest core news developments regarding Dangote Petroleum Refinery and Petrochemicals FZE (DPRP), Nigerian stock market (NGX), energy equities, crude oil supply in Naira, and the historic Dangote Refinery Initial Public Offering (IPO) offering 4.1 billion ordinary shares at ₦525 per share to raise ₦2.15 trillion ($1.6 billion) across 10 million individual and retail investors for ${new Date().toDateString()}.
 Format the response strictly as a JSON object containing a property 'articles' which is an array of objects.
 Each article must contain:
 - title: string (the actual news headline)
@@ -85,7 +91,7 @@ Each article must contain:
 Ensure the headlines are authentic, relevant, and grounded in real-time search. Ensure you return valid JSON.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -139,8 +145,8 @@ Ensure the headlines are authentic, relevant, and grounded in real-time search. 
       const fallbackNews = {
         articles: [
           {
-            title: "Dangote Refinery Accelerates Public IPO Allocation Amid Strong Retail Demand",
-            summary: "Investment banks and capital market operators report unprecedented subscriber demand across retail and institutional tranches ahead of formal NGX listing.",
+            title: "Dangote Petroleum Refinery Opens Historic 4.1 Billion Share IPO at ₦525 Per Share",
+            summary: "Issuer Dangote Petroleum Refinery and Petrochemicals FZE (DPRP) launches public offering seeking ₦2.15 trillion ($1.6 billion) from 10 million individual and retail investors with a 10-share minimum entry (₦5,250).",
             sourceName: "BusinessDay",
             category: "IPO Allotment",
             publishedTime: "1 hour ago"

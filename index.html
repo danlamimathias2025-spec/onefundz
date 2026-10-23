@@ -24,17 +24,20 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Service Worker Registration -->
+    <!-- Cache-Buster & Clean Cache Protocol -->
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((reg) => {
-              console.log('[PWA Service Worker] Registered successfully with scope:', reg.scope);
-            })
-            .catch((err) => {
-              console.error('[PWA Service Worker] Registration failed:', err);
-            });
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          for (let reg of regs) {
+            reg.unregister().then(() => console.log('[PWA] Unregistered stale worker'));
+          }
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) {
+            caches.delete(name);
+          }
         });
       }
     </script>

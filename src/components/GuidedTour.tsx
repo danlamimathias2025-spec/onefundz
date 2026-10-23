@@ -36,8 +36,8 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     targetId: 'dashboard-product-list',
-    title: 'Cooperative Yield Plans',
-    description: 'Scroll through and acquire high-performance, risk-managed cooperative plans (VIP 1 through VIP 10). Starting at ₦4,000, each tier boosts your cumulative daily payout potential.',
+    title: 'Dangote Refinery Share Allotments',
+    description: 'Participate in the Dangote Petroleum Refinery IPO offering 4.1 billion ordinary shares at ₦525.00 per share. Minimum subscription is 10 shares costing ₦5,250 with instant digital share certificates.',
     position: 'top'
   },
   {

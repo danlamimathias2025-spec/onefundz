@@ -21,7 +21,7 @@ export default function BuyMoreSharesModal({
   onOpenDeposit,
 }: BuyMoreSharesModalProps) {
   const { success, error: toastError } = useToast();
-  const [sharesInput, setSharesInput] = useState<number>(100);
+  const [sharesInput, setSharesInput] = useState<number>(10);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pricePerShare = DANGOTE_IPO_PRICE;
@@ -29,8 +29,8 @@ export default function BuyMoreSharesModal({
   const isBalanceSufficient = userBalance >= totalCost;
   const shortfall = Math.max(0, totalCost - userBalance);
 
-  // Quick increment buttons
-  const quickQuantities = [25, 50, 100, 250, 500, 1000];
+  // Quick increment buttons starting with the minimum subscription of 10 shares
+  const quickQuantities = [10, 50, 100, 250, 500, 1000];
 
   const handleBuy = async () => {
     if (!auth.currentUser || !auth.currentUser.email) {
@@ -39,7 +39,7 @@ export default function BuyMoreSharesModal({
     }
 
     if (sharesInput < 10) {
-      toastError('Minimum Order', 'The minimum share allocation is 10 shares.');
+      toastError('Minimum Subscription', 'The minimum subscription is 10 shares (costing ₦5,250).');
       return;
     }
 
@@ -53,10 +53,11 @@ export default function BuyMoreSharesModal({
 
     const confirmBuy = window.confirm(
       `Confirm Share Purchase Allotment:\n\n` +
-      `Company: Dangote Petroleum Refinery & Petrochemicals PLC\n` +
+      `Issuer: Dangote Petroleum Refinery and Petrochemicals FZE (DPRP)\n` +
       `Shares Quantity: ${sharesInput.toLocaleString()} Ordinary Shares\n` +
       `Offer Price: ₦ ${pricePerShare} / share\n` +
-      `Total Cost: ₦ ${totalCost.toLocaleString('en-NG')}\n\n` +
+      `Total Cost: ₦ ${totalCost.toLocaleString('en-NG')}\n` +
+      `Minimum Subscription Met: Yes (Min 10 shares / ₦5,250)\n\n` +
       `Proceed and debit ₦ ${totalCost.toLocaleString('en-NG')} from your account?`
     );
 
@@ -136,7 +137,7 @@ export default function BuyMoreSharesModal({
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Buy Dangote Refinery Shares</h3>
-              <p className="text-[10px] text-amber-300">Public Allotment · NGX Direct Subscription</p>
+              <p className="text-[10px] text-amber-300">Dangote Petroleum Refinery & Petrochemicals FZE (DPRP)</p>
             </div>
           </div>
           <button
@@ -162,21 +163,24 @@ export default function BuyMoreSharesModal({
 
           {/* Quantity Selector */}
           <div>
-            <label className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block mb-1.5">
-              Enter Desired Shares Quantity
-            </label>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block">
+                Enter Desired Shares Quantity
+              </label>
+              <span className="text-[10px] text-slate-400">Min Subscription: 10 Shares (₦5,250)</span>
+            </div>
             <div className="relative">
               <input
                 type="number"
                 min="10"
-                step="5"
+                step="10"
                 value={sharesInput || ''}
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10);
                   setSharesInput(isNaN(val) ? 0 : Math.max(0, val));
                 }}
                 className="w-full bg-[#071120] border border-slate-700 rounded-xl px-4 py-3 text-base font-mono font-bold text-white focus:border-amber-400 outline-none"
-                placeholder="100"
+                placeholder="10"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">
                 Units

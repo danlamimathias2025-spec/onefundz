@@ -298,7 +298,7 @@ export default function DepositModal({ onClose, onOpenPortfolio }: DepositModalP
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono">₦</span>
                   <input 
                     type="number" 
-                    placeholder="e.g. 24,000" 
+                    placeholder="e.g. 5,250 (Min 10 shares)" 
                     value={amount} 
                     onChange={(e) => setAmount(e.target.value)} 
                     className="w-full pl-9 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 focus:ring-1 focus:ring-amber-500 font-mono text-sm font-bold text-slate-900 dark:text-white outline-none"

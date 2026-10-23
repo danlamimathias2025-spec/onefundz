@@ -293,7 +293,7 @@ export default function ShareholderPortfolio({
                     DANGOTE PETROLEUM REFINERY
                   </h3>
                   <p className="text-[10px] text-amber-400 font-medium">
-                    & Petrochemicals PLC · RC 1142901
+                    and Petrochemicals FZE (DPRP)
                   </p>
                   <p className="text-[9px] text-slate-400">
                     Lekki Free Zone, Ibeju-Lekki, Lagos State, Nigeria
@@ -366,7 +366,7 @@ export default function ShareholderPortfolio({
 
               {/* Legal confirmation statement */}
               <p className="text-[10px] text-slate-400 leading-relaxed italic text-center px-2">
-                "This certifies that the designated holder is registered in the Register of Members of Dangote Petroleum Refinery & Petrochemicals PLC as the absolute proprietor of the Ordinary Shares specified herein, subject to the Articles of Association of the Company."
+                "This certifies that the designated holder is registered in the Register of Members of Dangote Petroleum Refinery and Petrochemicals FZE (DPRP) as the absolute proprietor of the Ordinary Shares specified herein, subject to the Articles of Association of the Company."
               </p>
 
               {/* Official Seal and Signatures */}

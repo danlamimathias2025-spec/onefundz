@@ -38,7 +38,7 @@ export default function AdminPanel() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [paymentLinkInput, setPaymentLinkInput] = useState('https://paystack.shop/pay/dangote_refinary_deposit');
-  const [ipoPriceInput, setIpoPriceInput] = useState('240');
+  const [ipoPriceInput, setIpoPriceInput] = useState('525');
   const [depositFilter, setDepositFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [processingIds, setProcessingIds] = useState<Record<string, boolean>>({});
@@ -1259,7 +1259,7 @@ export default function AdminPanel() {
                           <span>·</span>
                           <span>Cert: <strong className="font-mono text-slate-800">#{inv.certificateNumber || inv.id.slice(0, 8)}</strong></span>
                           <span>·</span>
-                          <span>Units: <strong className="font-mono text-amber-600">{(inv.sharesCount || Math.floor((inv.amount || 0) / 240)).toLocaleString()} Shares</strong></span>
+                          <span>Units: <strong className="font-mono text-amber-600">{(inv.sharesCount || Math.floor((inv.amount || 0) / (inv.sharePrice || 525))).toLocaleString()} Shares</strong></span>
                         </div>
                       </div>
 

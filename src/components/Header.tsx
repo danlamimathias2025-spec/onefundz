@@ -28,7 +28,7 @@ export default function Header({ toggleTheme, isDarkMode }: HeaderProps) {
               IPO
             </span>
             <span className="text-[10px] sm:text-xs text-amber-300 font-bold flex items-center gap-1">
-              <TrendingUp size={12} className="text-emerald-400 shrink-0" /> ₦240.00
+              <TrendingUp size={12} className="text-emerald-400 shrink-0" /> ₦525.00 / Share
             </span>
           </div>
           <span className="text-[9px] text-slate-300 hidden sm:inline mt-0.5 font-medium">
