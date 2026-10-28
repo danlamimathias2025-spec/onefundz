@@ -55,11 +55,11 @@ service cloud.firestore {
                         (!('role' in request.resource.data) && !('role' in resource.data)) ||
                         (('role' in request.resource.data) && ('role' in resource.data) && request.resource.data.role == resource.data.role)
                       )) || (
-                        // Allow incrementing balance by exactly N500 or N1,200 for referral rewards
+                        // Allow incrementing balance by exactly N500, N1,000 or N1,200 for referral rewards
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
                         (
-                          ('balance' in resource.data && (request.resource.data.balance == resource.data.balance + 500 || request.resource.data.balance == resource.data.balance + 1200)) ||
-                          (!('balance' in resource.data) && (request.resource.data.balance == 500 || request.resource.data.balance == 1200))
+                          ('balance' in resource.data && (request.resource.data.balance == resource.data.balance + 500 || request.resource.data.balance == resource.data.balance + 1000 || request.resource.data.balance == resource.data.balance + 1200)) ||
+                          (!('balance' in resource.data) && (request.resource.data.balance == 500 || request.resource.data.balance == 1000 || request.resource.data.balance == 1200))
                         )
                       )
                     )) || isAdmin();
@@ -79,11 +79,13 @@ service cloud.firestore {
       allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId) || ('userUid' in resource.data && resource.data.userUid == request.auth.uid));
       allow create: if isSignedIn() && (isAdmin() || isEmailOwner(request.resource.data.userId) || ('userUid' in request.resource.data && request.resource.data.userUid == request.auth.uid));
       allow update: if isAdmin();
+      allow delete: if isAdmin();
       
       match /messages/{messageId} {
         allow get: if isSignedIn() && (isAdmin() || isOwnerEmail(resource.data.userId) || ('userUid' in resource.data && resource.data.userUid == request.auth.uid));
         allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId) || ('userUid' in resource.data && resource.data.userUid == request.auth.uid));
         allow create: if isSignedIn() && (isAdmin() || isEmailOwner(request.resource.data.userId) || ('userUid' in request.resource.data && request.resource.data.userUid == request.auth.uid));
+        allow delete: if isAdmin();
       }
     }
 
@@ -92,6 +94,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId) || ('userUid' in resource.data && resource.data.userUid == request.auth.uid));
       allow create: if isSignedIn() && (isEmailOwner(request.resource.data.userId) || ('userUid' in request.resource.data && request.resource.data.userUid == request.auth.uid));
       allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /deposits/{depositId} {
@@ -99,6 +102,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && (isAdmin() || isEmailOwner(resource.data.userId) || ('userUid' in resource.data && resource.data.userUid == request.auth.uid));
       allow create: if isSignedIn() && (isEmailOwner(request.resource.data.userId) || ('userUid' in request.resource.data && request.resource.data.userUid == request.auth.uid));
       allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /investments/{investmentId} {

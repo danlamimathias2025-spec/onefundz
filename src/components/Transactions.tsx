@@ -408,7 +408,7 @@ export default function Transactions() {
 
   // Compile unified general chronological transactions ledger
   const compiledLedger: CombinedLedgerItem[] = [
-    ...dbPurchases.map(t => {
+    ...dbPurchases.filter(t => t.category !== 'deposit').map(t => {
       const isRef = t.category === 'referral';
       return {
         id: t.id,
@@ -422,7 +422,7 @@ export default function Transactions() {
     }),
     ...dbWithdrawals.map(w => ({
       id: w.id,
-      description: `Withdrawal transfer to ${w.bankName}`,
+      description: `Withdrawal transfer to ${w.bankName || 'bank account'}`,
       amount: -w.amount,
       category: 'withdrawal' as const,
       status: w.status,
@@ -431,10 +431,10 @@ export default function Transactions() {
     })),
     ...dbDeposits.map(d => ({
       id: d.id,
-      description: d.remarks || 'Wallet Deposit Funding',
+      description: d.remarks || (d.reference ? `Deposit Funding (${d.reference})` : 'Wallet Deposit Funding'),
       amount: d.amount,
       category: 'deposit' as const,
-      status: d.status,
+      status: d.status || 'pending',
       date: d.dateString,
       timestamp: d.timeMs
     }))

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Header from "./components/Header";
 import AssetBalanceCard from "./components/AssetBalanceCard";
+import VerifiedSecureBadge from "./components/VerifiedSecureBadge";
 import PerformanceChart from "./components/PerformanceChart";
 import ProductList from "./components/ProductList";
 import Transactions from "./components/Transactions";
@@ -575,6 +576,7 @@ export default function App() {
                 balance={balanceVal}
                 projectedValue={projectedValueVal}
               />
+              <VerifiedSecureBadge />
               <DailyGrowthIndicator />
               <PerformanceChart investments={realInvestments} />
 

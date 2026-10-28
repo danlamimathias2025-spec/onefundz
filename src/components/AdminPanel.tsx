@@ -148,44 +148,79 @@ export default function AdminPanel() {
       const depositData = depositSnap.data();
       if (depositData && depositData.status !== 'pending' && depositData.status !== undefined && depositData.status !== '') {
         alert(`This deposit has already been processed (current status: ${depositData.status}).`);
-        // update local state just in case
         setDeposits(deposits.map(d => d.id === id ? { ...d, status: depositData.status } : d));
         return;
       }
 
-      const targetEmail = (userId || '').trim().toLowerCase();
+      const targetEmail = (userId || depositData.userId || '').trim().toLowerCase();
+      const targetUserUid = (depositData.userUid || '').trim();
+
       // 2. Update deposit status to approved
       await updateDoc(depositRef, { status: 'approved' });
+
+      // 3. Update any associated pending transaction receipts so status changes to approved (no duplicates!)
+      try {
+        const txQuery = query(
+          collection(db, 'transactions'),
+          where('userId', '==', targetEmail),
+          where('category', '==', 'deposit'),
+          where('status', '==', 'pending')
+        );
+        const txSnap = await getDocs(txQuery);
+        for (const tDoc of txSnap.docs) {
+          await updateDoc(doc(db, 'transactions', tDoc.id), {
+            status: 'approved',
+            description: `Deposit via Paystack (Approved by Admin)`
+          });
+        }
+      } catch (txErr) {
+        console.warn("Error updating pending transactions:", txErr);
+      }
       
-      // 3. Increase user balance - prioritize exact userUid if available
-      let targetDocId = depositData.userUid || '';
-      if (!targetDocId) {
-        const q = query(collection(db, 'users'), where('email', '==', targetEmail));
-        const userSnap = await getDocs(q);
-        if (!userSnap.empty) {
-          targetDocId = userSnap.docs[0].id;
+      // 4. Increase user balance - verify exact user document
+      let targetUserDocId = '';
+
+      if (targetUserUid) {
+        try {
+          const uSnap = await getDoc(doc(db, 'users', targetUserUid));
+          if (uSnap.exists()) {
+            targetUserDocId = targetUserUid;
+          }
+        } catch (e) {
+          console.warn('userUid lookup error:', e);
         }
       }
 
-      if (targetDocId) {
-          await updateDoc(doc(db, 'users', targetDocId), { balance: increment(amount) });
-          
-          setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
-          // Sync local users list too
-          setUsers(users.map(u => (u.id === targetDocId || u.email?.toLowerCase() === targetEmail) ? { ...u, balance: (u.balance || 0) + amount } : u));
-          
-          await logAction('APPROVE_DEPOSIT', targetDocId, targetEmail, `Admin approved deposit of ₦${amount.toLocaleString('en-NG')}`, 'INFO');
-          
-          alert('Deposit approved successfully. User balance has been credited.');
+      if (!targetUserDocId && targetEmail) {
+        try {
+          const q = query(collection(db, 'users'), where('email', '==', targetEmail));
+          const userSnap = await getDocs(q);
+          if (!userSnap.empty) {
+            targetUserDocId = userSnap.docs[0].id;
+          }
+        } catch (e) {
+          console.warn('email lookup error:', e);
+        }
+      }
+
+      if (targetUserDocId) {
+        await updateDoc(doc(db, 'users', targetUserDocId), { balance: increment(amount) });
+        
+        setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
+        setUsers(users.map(u => (u.id === targetUserDocId || (u.email || '').toLowerCase() === targetEmail) ? { ...u, balance: (u.balance || 0) + amount } : u));
+        
+        await logAction('APPROVE_DEPOSIT', targetUserDocId, targetEmail, `Admin approved deposit of ₦${amount.toLocaleString('en-NG')}`, 'INFO');
+        
+        alert(`Deposit of ₦${amount.toLocaleString('en-NG')} approved successfully! User balance has been credited.`);
       } else {
-          setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
-          alert(`Deposit request approved successfully, but warning: User of email (${targetEmail}) was not found in the users database. Balance update skipped.`);
+        setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'approved' } : d));
+        alert(`Deposit request approved successfully, but warning: User email (${targetEmail}) was not found in the users database. Balance update skipped.`);
       }
       
       setSelectedDepositForReview(null);
     } catch (err) {
-      console.error(err);
-      alert('Failed to approve deposit.');
+      console.error('Error approving deposit:', err);
+      alert('Failed to approve deposit: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setProcessingIds(prev => {
         const copy = { ...prev };
@@ -212,12 +247,30 @@ export default function AdminPanel() {
         return;
       }
 
-      const targetEmail = deposits.find(d => d.id === id)?.email || 'unknown';
-      // Update deposit status to rejected - balance is not modified
+      const targetEmail = (depositData?.userId || deposits.find(d => d.id === id)?.userId || 'unknown').toLowerCase();
+      
+      // Update deposit status to rejected
       await updateDoc(depositRef, { status: 'rejected' });
+      
+      // Also update any pending transactions
+      try {
+        const txQuery = query(
+          collection(db, 'transactions'),
+          where('userId', '==', targetEmail),
+          where('category', '==', 'deposit'),
+          where('status', '==', 'pending')
+        );
+        const txSnap = await getDocs(txQuery);
+        for (const tDoc of txSnap.docs) {
+          await updateDoc(doc(db, 'transactions', tDoc.id), { status: 'rejected' });
+        }
+      } catch (e) {
+        console.warn('Error updating pending transactions on rejection:', e);
+      }
+
       setDeposits(deposits.map(d => d.id === id ? { ...d, status: 'rejected' } : d));
       
-      await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit of ₦${deposits.find(d => d.id === id)?.amount?.toLocaleString('en-NG') || '0'}`, 'WARNING');
+      await logAction('REJECT_DEPOSIT', id, targetEmail, `Admin rejected deposit request`, 'WARNING');
       
       alert('Deposit request has been rejected.');
       setSelectedDepositForReview(null);
@@ -393,10 +446,9 @@ export default function AdminPanel() {
 
   const purgeAllNonAdminUsers = async () => {
     const adminEmail = 'danlamimathias2025@gmail.com';
-    const nonAdminUsers = users.filter(user => (user.email || '').trim().toLowerCase() !== adminEmail);
 
     const doubleConfirmed = window.confirm(
-      `⚠️ ALERT - CRITICAL MAINTENANCE ACTION:\n\nYou are about to DELETE all user accounts and associated data (investments, withdrawals, deposits, transactions, chats) from Firestore except the master admin account (${adminEmail}).\n\nThis is irreversible. Are you absolutely certain?`
+      `⚠️ ALERT - CRITICAL MAINTENANCE ACTION:\n\nYou are about to DELETE all non-admin user accounts and all associated data (investments, withdrawals, deposits, transactions, chats, referral codes) from Firestore except the master admin account (${adminEmail}).\n\nThis is irreversible. Are you absolutely certain?`
     );
     if (!doubleConfirmed) return;
 
@@ -405,41 +457,57 @@ export default function AdminPanel() {
     let failCount = 0;
 
     try {
-      // 1. Delete non-admin users from 'users' collection
-      for (const u of nonAdminUsers) {
-        try {
-          await deleteDoc(doc(db, 'users', u.id));
-          successCount++;
-          const emailLower = (u.email || '').trim().toLowerCase();
-          if (emailLower) {
+      // 1. Fetch fresh list of all user documents from Firestore
+      const usersSnap = await getDocs(collection(db, 'users'));
+      for (const uDoc of usersSnap.docs) {
+        const uData = uDoc.data();
+        const userEmail = (uData.email || '').trim().toLowerCase();
+        const isMasterAdmin = userEmail === adminEmail || uData.role === 'admin';
+
+        if (!isMasterAdmin) {
+          try {
+            await deleteDoc(doc(db, 'users', uDoc.id));
+            successCount++;
+
+            // Clean related documents across all user collections matching by email or UID
             const collectionsToClean = ['investments', 'withdrawals', 'deposits', 'transactions', 'supportChats', 'referralCodes'];
             for (const colName of collectionsToClean) {
               try {
-                const qCol = query(collection(db, colName), where('userId', '==', emailLower));
-                const snapCol = await getDocs(qCol);
+                const snapCol = await getDocs(collection(db, colName));
                 for (const dSnap of snapCol.docs) {
-                  await deleteDoc(doc(db, colName, dSnap.id));
+                  const dData = dSnap.data();
+                  const recUserId = (dData.userId || '').trim().toLowerCase();
+                  const recUserUid = (dData.userUid || '').trim();
+                  if (
+                    recUserId === userEmail ||
+                    recUserUid === uDoc.id ||
+                    recUserId === uDoc.id ||
+                    (colName === 'referralCodes' && dData.userId === uDoc.id)
+                  ) {
+                    await deleteDoc(doc(db, colName, dSnap.id));
+                  }
                 }
               } catch (subErr) {
-                console.warn(`Failed cleaning collection ${colName} for ${emailLower}:`, subErr);
+                console.warn(`Failed cleaning collection ${colName} for ${userEmail}:`, subErr);
               }
             }
+          } catch (err) {
+            console.error(`Failed to delete user doc: ${uDoc.id}`, err);
+            failCount++;
           }
-        } catch (err) {
-          console.error(`Failed to delete user doc: ${u.id}`, err);
-          failCount++;
         }
       }
 
-      // 2. Clean orphaned collections
-      const allCols = ['investments', 'withdrawals', 'deposits', 'transactions', 'supportChats', 'referralCodes'];
-      for (const colName of allCols) {
+      // 2. Final sweep for any orphaned documents not belonging to master admin
+      const sweepCols = ['investments', 'withdrawals', 'deposits', 'transactions', 'supportChats', 'referralCodes'];
+      for (const colName of sweepCols) {
         try {
           const snapAll = await getDocs(collection(db, colName));
           for (const dSnap of snapAll.docs) {
             const data = dSnap.data();
             const recordUserId = (data.userId || '').trim().toLowerCase();
-            if (recordUserId && recordUserId !== adminEmail) {
+            const recordUserUid = (data.userUid || '').trim();
+            if (recordUserId && recordUserId !== adminEmail && recordUserUid !== auth.currentUser?.uid) {
               await deleteDoc(doc(db, colName, dSnap.id));
             }
           }
@@ -448,11 +516,11 @@ export default function AdminPanel() {
         }
       }
 
-      alert(`Database Purge Completed!\n\nDeleted Non-Admin User Accounts: ${successCount}\nAssociated data and transaction ledgers purged.`);
+      alert(`Database Purge Completed Successfully!\n\nDeleted Non-Admin User Accounts: ${successCount}\nAll associated investments, deposits, withdrawals, and transaction ledgers purged.`);
       await logAction('PURGE_USERS', 'all_non_admin', 'multiple', `Full system purge executed. Deleted non-admin users: ${successCount}`, 'CRITICAL');
     } catch (err) {
       console.error("Purge error:", err);
-      alert("An error occurred during database purge.");
+      alert("An error occurred during database purge: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsPurging(false);
       await fetchData();

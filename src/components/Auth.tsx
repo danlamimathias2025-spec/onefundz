@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp, increment, query, where, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Phone, LogIn, Sparkles, AlertCircle, CheckCircle, HelpCircle, X } from 'lucide-react';
+import Logo from './Logo';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -111,6 +112,19 @@ export default function AuthPage() {
               referrerEmail = refData.email;
               referrerUserName = refData.userName;
             }
+          } else {
+            // Fallback lookup directly in users collection
+            const q = query(collection(db, 'users'), where('referralCode', '==', refInput));
+            const qSnap = await getDocs(q);
+            if (!qSnap.empty) {
+              const refUserDoc = qSnap.docs[0];
+              const refUserData = refUserDoc.data();
+              if (refUserData.email && refUserData.email.toLowerCase() !== formData.email.trim().toLowerCase()) {
+                referrerId = refUserDoc.id;
+                referrerEmail = refUserData.email;
+                referrerUserName = refUserData.userName || refUserData.fullName;
+              }
+            }
           }
         } catch (err) {
           console.error("Error looking up referral code:", err);
@@ -175,11 +189,11 @@ export default function AuthPage() {
           createdAt: serverTimestamp()
         });
 
-        // Credit the referrer balance with N500 (allowed via custom rules)
+        // Credit the referrer balance with N1,000 (allowed via custom rules)
         try {
           const refUserDocRef = doc(db, 'users', referrerId);
           await updateDoc(refUserDocRef, {
-            balance: increment(500)
+            balance: increment(1000)
           });
 
           // Log referral award transactional ledger
@@ -187,7 +201,7 @@ export default function AuthPage() {
             userId: referrerEmail.toLowerCase(),
             userUid: referrerId,
             description: `Referral award: Invited @${formData.userName}`,
-            amount: 500,
+            amount: 1000,
             category: 'referral',
             status: 'approved',
             date: new Date().toISOString().split('T')[0],
@@ -265,18 +279,11 @@ export default function AuthPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-yellow-500/10 blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md space-y-8 z-10">
-        <div className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-yellow-500 flex items-center justify-center shadow-md">
-            <Sparkles className="text-white" size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-white font-sans bg-clip-text">
-              ONEFUNDZ COOPERATIVE
-            </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-              Secure Yield Multiplying Programs & Microfinance Investment Networks
-            </p>
-          </div>
+        <div className="flex flex-col items-center justify-center space-y-3 text-center">
+          <Logo size="lg" variant="full" showTagline={true} className="justify-center" />
+          <p className="text-xs text-slate-400 max-w-xs mx-auto">
+            Secure Yield Multiplying Programs & Microfinance Investment Networks
+          </p>
         </div>
 
         <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-6">

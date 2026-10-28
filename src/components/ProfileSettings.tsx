@@ -24,7 +24,8 @@ import {
   Lock,
   Coins,
   Smartphone,
-  Download
+  Download,
+  Gift
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -212,7 +213,7 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
       // 3. Update Referrer's balance using atomic on-server increment to respect read permissions
       const refUserDocRef = doc(db, 'users', referrerId);
       await updateDoc(refUserDocRef, {
-        balance: increment(1200)
+        balance: increment(1000)
       });
 
       // 4. Add transactions record for Claimant (self)
@@ -230,7 +231,7 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
       await addDoc(collection(db, 'transactions'), {
         userId: referrerEmail.toLowerCase(),
         description: `Referral award: Invited @${userData.userName || 'Member'}`,
-        amount: 1200,
+        amount: 1000,
         category: 'referral',
         status: 'approved',
         date: new Date().toISOString().split('T')[0],
@@ -709,38 +710,54 @@ export default function ProfileSettings({ onStartTour, isAdmin, initialView = 'p
                 </div>
               ) : (
                 <div className="bg-white/5 backdrop-blur-sm p-5 rounded-xl border border-white/10 shadow-sm space-y-4 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-3">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-405 text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
-                      <Sparkles size={10} />
-                      Coming Soon
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-purple-400/60 font-bold uppercase tracking-wider block flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-amber-400/50" />
+                  <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-400" />
                     Claim Invitation Bonus
                   </span>
                   
-                  <div className="space-y-3.5 opacity-50 pointer-events-none grayscale-[30%]">
-                    <p className="text-[11px] text-purple-300/80 leading-relaxed pr-24">
-                      Received an invitation code from a friend? Enter it below to claim your <strong className="text-white/80 font-bold">₦1,000.00 welcome bonus</strong>!
+                  <div className="space-y-3.5">
+                    <p className="text-[11px] text-purple-200/90 leading-relaxed">
+                      Received an invitation code from a friend? Enter it below to claim your <strong className="text-white font-bold">₦1,000.00 welcome bonus</strong>!
                     </p>
+
+                    {claimStatus && (
+                      <div className={`p-3 rounded-lg text-xs border ${
+                        claimStatus.type === 'success' 
+                          ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' 
+                          : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                      }`}>
+                        {claimStatus.message}
+                      </div>
+                    )}
+
                     <div>
-                      <label className="block text-[10px] uppercase font-semibold text-purple-400/60 mb-1">Invitation Code</label>
+                      <label className="block text-[10px] uppercase font-semibold text-purple-300 mb-1">Invitation Code</label>
                       <input 
                         type="text" 
-                        value="" 
-                        onChange={() => {}}
-                        disabled={true}
-                        className="w-full bg-purple-950/20 border border-purple-800/30 p-3 rounded-lg text-xs text-white/50 focus:outline-none font-mono uppercase" 
+                        value={invitationCode} 
+                        onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                        disabled={isClaiming}
+                        className="w-full bg-purple-950/40 border border-purple-800/60 p-3 rounded-lg text-xs text-white placeholder-purple-400/50 focus:outline-none focus:ring-1 focus:ring-purple-500 font-mono uppercase" 
                         placeholder="e.g. USERNAME" 
                       />
                     </div>
 
                     <button 
-                      disabled={true}
-                      className="w-full py-3 rounded-lg font-bold transition text-xs flex items-center justify-center gap-2 bg-purple-950 text-purple-500 border border-purple-850 cursor-not-allowed shadow-none"
+                      onClick={handleClaimInvitation}
+                      disabled={isClaiming || !invitationCode.trim()}
+                      className="w-full py-3 rounded-lg font-bold transition text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Claim ₦1,000.00 Rewards
+                      {isClaiming ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Verifying Code...
+                        </>
+                      ) : (
+                        <>
+                          <Gift size={14} />
+                          Claim ₦1,000.00 Rewards
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

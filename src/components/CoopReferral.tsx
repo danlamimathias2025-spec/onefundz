@@ -16,14 +16,14 @@ export default function CoopReferral({ userData }: CoopReferralProps) {
     ? window.location.origin
     : primaryDomain;
   const refCode = userData?.referralCode || (userData?.userName ? userData.userName.toUpperCase() : 'ONEFUNDZ');
-  // Format requested by user: onefundz.vercel.app/ref?-"referral code"
+  // Format: onefundz.vercel.app/ref?-"referral code"
   const referralLink = `${baseUrl}/ref?-"${encodeURIComponent(refCode)}"`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    success('Referral Link Copied! 📋', 'Share with friends to earn ₦500 bonus per active subscriber.');
+    success('Referral Link Copied! 📋', 'Share with friends to earn ₦1,000 bonus per active subscriber.');
   };
 
   const handleShareNative = () => {
@@ -51,7 +51,7 @@ export default function CoopReferral({ userData }: CoopReferralProps) {
             Ambassador & Referral Hub
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-            Invite friends to join OneFundz and earn a <strong className="text-yellow-500 font-bold">₦500 bonus</strong> for every successful member referral.
+            Invite friends to join OneFundz and earn a <strong className="text-yellow-500 font-bold">₦1,000 bonus</strong> for every successful member referral.
           </p>
         </div>
 
@@ -64,7 +64,7 @@ export default function CoopReferral({ userData }: CoopReferralProps) {
               </div>
               <div>
                 <h3 className="font-extrabold text-sm text-white">Your Referral Code</h3>
-                <p className="text-[10px] text-yellow-300">Earn ₦500 bonus per active referral</p>
+                <p className="text-[10px] text-yellow-300">Earn ₦1,000 bonus per active referral</p>
               </div>
             </div>
 
@@ -114,7 +114,7 @@ export default function CoopReferral({ userData }: CoopReferralProps) {
                 <Award size={16} />
               </div>
               <div>
-                <h5 className="text-xs font-bold text-slate-900 dark:text-white">₦500 Referrer Bonus</h5>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-white">₦1,000 Referrer Bonus</h5>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">
                   Instant cash bonus credited to your available balance when someone registers using your exclusive Ambassador link.
                 </p>
