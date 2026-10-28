@@ -55,11 +55,11 @@ service cloud.firestore {
                         (!('role' in request.resource.data) && !('role' in resource.data)) ||
                         (('role' in request.resource.data) && ('role' in resource.data) && request.resource.data.role == resource.data.role)
                       )) || (
-                        // Allow incrementing balance by exactly N1,200 for referral rewards
+                        // Allow incrementing balance by exactly N500 or N1,200 for referral rewards
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) &&
                         (
-                          ('balance' in resource.data && request.resource.data.balance == resource.data.balance + 1200) ||
-                          (!('balance' in resource.data) && request.resource.data.balance == 1200)
+                          ('balance' in resource.data && (request.resource.data.balance == resource.data.balance + 500 || request.resource.data.balance == resource.data.balance + 1200)) ||
+                          (!('balance' in resource.data) && (request.resource.data.balance == 500 || request.resource.data.balance == 1200))
                         )
                       )
                     )) || isAdmin();
@@ -116,7 +116,7 @@ service cloud.firestore {
                       isEmailOwner(request.resource.data.userId) ||
                       ('userUid' in request.resource.data && request.resource.data.userUid == request.auth.uid) || (
                         request.resource.data.category == 'referral' &&
-                        request.resource.data.amount == 1200 &&
+                        (request.resource.data.amount == 500 || request.resource.data.amount == 1000 || request.resource.data.amount == 1200) &&
                         request.resource.data.status == 'approved' &&
                         request.resource.data.description is string &&
                         request.resource.data.description.size() <= 150

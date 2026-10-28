@@ -22,17 +22,27 @@ export default function AuthPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
 
-  // Auto-detect invitation link ?ref=CODE from url query parameter
+  // Auto-detect invitation link ?-"CODE", ?ref=CODE, or ?code=CODE from url query parameter
   useEffect(() => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const refCode = params.get('ref');
+      const searchStr = window.location.search;
+      let refCode = '';
+      if (searchStr.includes('?-"')) {
+        const match = searchStr.match(/\?-"([^"]+)"/);
+        if (match && match[1]) {
+          refCode = match[1];
+        }
+      }
+      if (!refCode) {
+        const params = new URLSearchParams(searchStr);
+        refCode = params.get('ref') || params.get('code') || '';
+      }
       if (refCode) {
         setFormData(prev => ({ ...prev, referralCodeInput: refCode.trim().toUpperCase() }));
         setIsLogin(false); // Automatically shift to the registration page for invitee
         setFeedback({
           type: 'success',
-          message: `Referral promotion detected! You've received a ₦1,000 welcome bonus slot under reference link: [${refCode.toUpperCase()}].`
+          message: `Referral promotion detected! You've received an invitation slot under reference link: [${refCode.toUpperCase()}].`
         });
       }
     } catch (err) {
@@ -165,11 +175,11 @@ export default function AuthPage() {
           createdAt: serverTimestamp()
         });
 
-        // Credit the referrer balance with N1,200 (allowed via custom rules)
+        // Credit the referrer balance with N500 (allowed via custom rules)
         try {
           const refUserDocRef = doc(db, 'users', referrerId);
           await updateDoc(refUserDocRef, {
-            balance: increment(1200)
+            balance: increment(500)
           });
 
           // Log referral award transactional ledger
@@ -177,7 +187,7 @@ export default function AuthPage() {
             userId: referrerEmail.toLowerCase(),
             userUid: referrerId,
             description: `Referral award: Invited @${formData.userName}`,
-            amount: 1200,
+            amount: 500,
             category: 'referral',
             status: 'approved',
             date: new Date().toISOString().split('T')[0],
