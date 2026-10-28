@@ -395,13 +395,8 @@ export default function AdminPanel() {
     const adminEmail = 'danlamimathias2025@gmail.com';
     const nonAdminUsers = users.filter(user => (user.email || '').trim().toLowerCase() !== adminEmail);
 
-    if (nonAdminUsers.length === 0) {
-      alert('There are no registered users in the database to purge.');
-      return;
-    }
-
     const doubleConfirmed = window.confirm(
-      `⚠️ ALERT - CRITICAL MAINTENANCE ACTION:\n\nYou are about to DELETE all ${nonAdminUsers.length} user accounts from the database except the master admin account (${adminEmail}).\n\nThis is irreversible and will fully reset their balances and subscriptions. Are you absolutely certain?`
+      `⚠️ ALERT - CRITICAL MAINTENANCE ACTION:\n\nYou are about to DELETE all user accounts and associated data (investments, withdrawals, deposits, transactions, chats) from Firestore except the master admin account (${adminEmail}).\n\nThis is irreversible. Are you absolutely certain?`
     );
     if (!doubleConfirmed) return;
 
@@ -409,22 +404,59 @@ export default function AdminPanel() {
     let successCount = 0;
     let failCount = 0;
 
-    for (const u of nonAdminUsers) {
-      try {
-        await deleteDoc(doc(db, 'users', u.id));
-        successCount++;
-      } catch (err) {
-        console.error(`Failed to delete user doc: ${u.id}`, err);
-        failCount++;
+    try {
+      // 1. Delete non-admin users from 'users' collection
+      for (const u of nonAdminUsers) {
+        try {
+          await deleteDoc(doc(db, 'users', u.id));
+          successCount++;
+          const emailLower = (u.email || '').trim().toLowerCase();
+          if (emailLower) {
+            const collectionsToClean = ['investments', 'withdrawals', 'deposits', 'transactions', 'supportChats', 'referralCodes'];
+            for (const colName of collectionsToClean) {
+              try {
+                const qCol = query(collection(db, colName), where('userId', '==', emailLower));
+                const snapCol = await getDocs(qCol);
+                for (const dSnap of snapCol.docs) {
+                  await deleteDoc(doc(db, colName, dSnap.id));
+                }
+              } catch (subErr) {
+                console.warn(`Failed cleaning collection ${colName} for ${emailLower}:`, subErr);
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to delete user doc: ${u.id}`, err);
+          failCount++;
+        }
       }
-    }
 
-    alert(`Purge completed successfully!\n\nDeleted: ${successCount} user accounts.\nFailed: ${failCount} accounts.`);
-    setIsPurging(false);
-    
-    await logAction('PURGE_USERS', 'all_non_admin', 'multiple', `System purge executed. Successfully deleted: ${successCount}, Failed: ${failCount}`, 'CRITICAL');
-    
-    await fetchData();
+      // 2. Clean orphaned collections
+      const allCols = ['investments', 'withdrawals', 'deposits', 'transactions', 'supportChats', 'referralCodes'];
+      for (const colName of allCols) {
+        try {
+          const snapAll = await getDocs(collection(db, colName));
+          for (const dSnap of snapAll.docs) {
+            const data = dSnap.data();
+            const recordUserId = (data.userId || '').trim().toLowerCase();
+            if (recordUserId && recordUserId !== adminEmail) {
+              await deleteDoc(doc(db, colName, dSnap.id));
+            }
+          }
+        } catch (colErr) {
+          console.warn(`Failed sweeping collection ${colName}:`, colErr);
+        }
+      }
+
+      alert(`Database Purge Completed!\n\nDeleted Non-Admin User Accounts: ${successCount}\nAssociated data and transaction ledgers purged.`);
+      await logAction('PURGE_USERS', 'all_non_admin', 'multiple', `Full system purge executed. Deleted non-admin users: ${successCount}`, 'CRITICAL');
+    } catch (err) {
+      console.error("Purge error:", err);
+      alert("An error occurred during database purge.");
+    } finally {
+      setIsPurging(false);
+      await fetchData();
+    }
   };
 
   const openEditUserModal = (user: any) => {
