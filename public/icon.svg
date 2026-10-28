@@ -1,63 +1,83 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
+    <!-- Background Gradients -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0a1931"/>
-      <stop offset="50%" stop-color="#0b2447"/>
-      <stop offset="100%" stop-color="#00122e"/>
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="40%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#022c22"/>
     </linearGradient>
+
+    <!-- Gold Gradients -->
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffe28a"/>
-      <stop offset="50%" stop-color="#d4af37"/>
-      <stop offset="100%" stop-color="#9a7b1c"/>
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="35%" stop-color="#f59e0b"/>
+      <stop offset="70%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#b45309"/>
     </linearGradient>
-    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#b71c1c"/>
-      <stop offset="50%" stop-color="#d32f2f"/>
-      <stop offset="100%" stop-color="#b71c1c"/>
+
+    <linearGradient id="goldLight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
+
+    <!-- Emerald Gradients -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+
+    <!-- Ribbon Gradient -->
+    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Glow Effect -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <!-- Background Circle -->
-  <circle cx="256" cy="256" r="250" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="12"/>
-  <circle cx="256" cy="256" r="230" fill="none" stroke="rgba(212, 175, 55, 0.4)" stroke-width="2" stroke-dasharray="6,4"/>
 
-  <!-- Refinery Tower Silhouettes -->
-  <!-- Distillation Columns -->
-  <rect x="180" y="160" width="28" height="170" rx="6" fill="#e2e8f0" opacity="0.9"/>
-  <rect x="176" y="190" width="36" height="6" fill="#94a3b8"/>
-  <rect x="176" y="230" width="36" height="6" fill="#94a3b8"/>
-  <rect x="176" y="270" width="36" height="6" fill="#94a3b8"/>
-  
-  <rect x="225" y="120" width="38" height="210" rx="8" fill="#f8fafc"/>
-  <path d="M 225 120 Q 244 95 263 120 Z" fill="#cbd5e1"/>
-  <rect x="220" y="160" width="48" height="7" fill="#64748b"/>
-  <rect x="220" y="200" width="48" height="7" fill="#64748b"/>
-  <rect x="220" y="240" width="48" height="7" fill="#64748b"/>
-  <rect x="220" y="280" width="48" height="7" fill="#64748b"/>
-  
-  <rect x="280" y="175" width="26" height="155" rx="5" fill="#e2e8f0" opacity="0.85"/>
-  <rect x="276" y="215" width="34" height="5" fill="#94a3b8"/>
-  <rect x="276" y="255" width="34" height="5" fill="#94a3b8"/>
+  <!-- Background Base Container -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+  <circle cx="256" cy="256" r="230" fill="url(#glow)"/>
 
-  <!-- Flare Stack & Flame -->
-  <line x1="325" y1="330" x2="325" y2="135" stroke="#f1f5f9" stroke-width="8"/>
-  <line x1="322" y1="210" x2="328" y2="210" stroke="#f1f5f9" stroke-width="4"/>
-  <line x1="320" y1="260" x2="330" y2="260" stroke="#f1f5f9" stroke-width="4"/>
-  <path d="M 325 135 C 315 110, 310 95, 325 80 C 335 95, 335 110, 325 135 Z" fill="#ff9800"/>
-  <path d="M 325 135 C 320 120, 318 105, 325 95 C 330 105, 330 120, 325 135 Z" fill="#ffe600"/>
+  <!-- Outer Gold Border -->
+  <rect x="16" y="16" width="480" height="480" rx="98" fill="none" stroke="url(#goldGrad)" stroke-width="8"/>
+  <rect x="28" y="28" width="456" height="456" rx="86" fill="none" stroke="rgba(245, 158, 11, 0.25)" stroke-width="2" stroke-dasharray="10,6"/>
 
-  <!-- Spherical Gas Tank -->
-  <ellipse cx="140" cy="285" rx="28" ry="26" fill="#94a3b8"/>
-  <line x1="125" y1="310" x2="120" y2="330" stroke="#64748b" stroke-width="5"/>
-  <line x1="155" y1="310" x2="160" y2="330" stroke="#64748b" stroke-width="5"/>
+  <!-- Shield Crest Background -->
+  <path d="M256 70 L390 120 V250 C390 345 325 415 256 440 C187 415 122 345 122 250 V120 L256 70 Z" 
+        fill="url(#emeraldGrad)" 
+        fill-opacity="0.12" 
+        stroke="url(#goldGrad)" 
+        stroke-width="12" 
+        stroke-linejoin="round"/>
 
-  <!-- Storage Tank -->
-  <rect x="350" y="270" width="50" height="60" rx="4" fill="#cbd5e1"/>
-  <ellipse cx="375" cy="270" rx="25" ry="8" fill="#e2e8f0"/>
+  <!-- Shield Inner Layer -->
+  <path d="M256 92 L370 135 V245 C370 328 312 392 256 415 C200 392 142 328 142 245 V135 L256 92 Z" 
+        fill="url(#bgGrad)" 
+        stroke="url(#emeraldGrad)" 
+        stroke-width="4"/>
 
-  <!-- Banner Ribbon for DANGOTE -->
-  <path d="M 90 355 L 422 355 L 400 395 L 422 435 L 90 435 L 112 395 Z" fill="url(#redGrad)" stroke="url(#goldGrad)" stroke-width="4"/>
-  <text x="256" y="405" font-family="'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="4">DANGOTE</text>
-  <text x="256" y="426" font-family="'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="800" fill="#ffe28a" text-anchor="middle" letter-spacing="3">REFINERY IPO</text>
-  
-  <text x="256" y="475" font-family="'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#cbd5e1" text-anchor="middle" letter-spacing="2">650,000 BPD · LEKKI</text>
+  <!-- Stylized Number "1" Growth Pillar -->
+  <path d="M210 320 V195 L180 215 V180 L225 145 H252 V320 H210 Z" fill="url(#goldGrad)"/>
+
+  <!-- Stylized "F" Top Crossbar & Emerald Arrow Wings -->
+  <path d="M252 160 H335 V195 H252 V160 Z" fill="url(#goldGrad)"/>
+  <path d="M252 220 H315 V252 H252 V220 Z" fill="url(#emeraldGrad)"/>
+
+  <!-- Dynamic Profit Growth Arrow Header -->
+  <path d="M305 320 L355 240 L385 265 L335 345 H305 Z" fill="url(#emeraldGrad)"/>
+
+  <!-- Center Sparkle / Diamond Crest -->
+  <polygon points="256,230 264,248 282,256 264,264 256,282 248,264 230,256 248,248" fill="#FFFFFF"/>
+
+  <!-- Bottom Brand Ribbon Banner -->
+  <path d="M110 380 L402 380 L385 418 L402 450 L110 450 L127 418 Z" fill="url(#ribbonGrad)" stroke="url(#goldGrad)" stroke-width="4"/>
+  <text x="256" y="420" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="32" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="3">ONEFUNDZ</text>
+  <text x="256" y="442" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="13" font-weight="800" fill="#FBBF24" text-anchor="middle" letter-spacing="4">WEALTH COOPERATIVE</text>
 </svg>
