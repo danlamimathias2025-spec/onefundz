@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send } from 'lucide-react';
-import { db, auth } from '@/src/lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, getDocs, where } from 'firebase/firestore';
 
 export default function SupportChatWindow({ onClose }: { onClose: () => void }) {

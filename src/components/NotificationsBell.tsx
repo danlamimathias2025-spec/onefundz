@@ -27,7 +27,8 @@ export default function NotificationsBell() {
         
         setNotifications(notifs);
         
-        const readNotifs = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+        const readKey = `readNotifications_${user.uid}`;
+        const readNotifs = JSON.parse(localStorage.getItem(readKey) || '[]');
         const unread = notifs.filter(n => !readNotifs.includes(n.id)).length;
         setUnreadCount(unread);
       });
@@ -41,9 +42,9 @@ export default function NotificationsBell() {
   const handleOpen = () => {
     setIsOpen(true);
     // Mark all currently fetched notifications as read
-    if (notifications.length > 0) {
+    if (notifications.length > 0 && auth.currentUser) {
       const allIds = notifications.map(n => n.id);
-      localStorage.setItem('readNotifications', JSON.stringify(allIds));
+      localStorage.setItem(`readNotifications_${auth.currentUser.uid}`, JSON.stringify(allIds));
       setUnreadCount(0);
     }
   };

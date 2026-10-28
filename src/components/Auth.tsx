@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '@/src/lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp, increment } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, User, Phone, LogIn, Sparkles, AlertCircle, CheckCircle, HelpCircle, X, ShieldCheck } from 'lucide-react';
-import { DANGOTE_ASSETS } from '../assets/dangoteAssets';
+import { Mail, Lock, User, Phone, LogIn, Sparkles, AlertCircle, CheckCircle, HelpCircle, X } from 'lucide-react';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -78,9 +77,9 @@ export default function AuthPage() {
     e.preventDefault();
     setFeedback(null);
     if (!validate()) return;
-    setLoading(true);
     try {
-      const genReferralCode = formData.userName.trim().toUpperCase();
+      setLoading(true);
+      let genReferralCode = formData.userName.trim().toUpperCase();
       const refInput = formData.referralCodeInput.trim().toUpperCase();
 
       // 1. Authenticate & create user first so that lookup is performed while authenticated
@@ -110,6 +109,16 @@ export default function AuthPage() {
       
       const newBalance = 500 + (referrerId ? 1000 : 0);
 
+      // Ensure unique referral code mapping without collisions or overwrites
+      try {
+        const checkDoc = await getDoc(doc(db, 'referralCodes', genReferralCode));
+        if (checkDoc.exists() && checkDoc.data()?.userId !== uid) {
+          genReferralCode = `${genReferralCode}_${uid.slice(-4).toUpperCase()}`;
+        }
+      } catch {
+        // Fallback if read fails
+      }
+
       // 2. Set Firestore record
       await setDoc(doc(db, 'users', uid), {
         fullName: formData.fullName,
@@ -133,6 +142,7 @@ export default function AuthPage() {
       // 4. Record sign-up welcome bonus of N500
       await addDoc(collection(db, 'transactions'), {
         userId: formData.email.toLowerCase(),
+        userUid: uid,
         description: 'Welcome Registration Bonus',
         amount: 500,
         category: 'referral',
@@ -146,6 +156,7 @@ export default function AuthPage() {
         // Invite welcome bonus for registering user
         await addDoc(collection(db, 'transactions'), {
           userId: formData.email.toLowerCase(),
+          userUid: uid,
           description: `Referral welcome bonus (Invited by @${referrerUserName})`,
           amount: 1000,
           category: 'referral',
@@ -157,24 +168,21 @@ export default function AuthPage() {
         // Credit the referrer balance with N1,200 (allowed via custom rules)
         try {
           const refUserDocRef = doc(db, 'users', referrerId);
-          const refUserSnap = await getDoc(refUserDocRef);
-          if (refUserSnap.exists()) {
-            const currentBalance = refUserSnap.data().balance || 0;
-            await updateDoc(refUserDocRef, {
-              balance: currentBalance + 1200
-            });
+          await updateDoc(refUserDocRef, {
+            balance: increment(1200)
+          });
 
-            // Log referral award transactional ledger
-            await addDoc(collection(db, 'transactions'), {
-              userId: referrerEmail.toLowerCase(),
-              description: `Referral award: Invited @${formData.userName}`,
-              amount: 1200,
-              category: 'referral',
-              status: 'approved',
-              date: new Date().toISOString().split('T')[0],
-              createdAt: serverTimestamp()
-            });
-          }
+          // Log referral award transactional ledger
+          await addDoc(collection(db, 'transactions'), {
+            userId: referrerEmail.toLowerCase(),
+            userUid: referrerId,
+            description: `Referral award: Invited @${formData.userName}`,
+            amount: 1200,
+            category: 'referral',
+            status: 'approved',
+            date: new Date().toISOString().split('T')[0],
+            createdAt: serverTimestamp()
+          });
         } catch (err) {
           console.error("Error updating referrer's balance or transactions:", err);
         }
@@ -241,54 +249,39 @@ export default function AuthPage() {
   };
 
   return (
-    <div id="auth-screen-container" className="flex flex-col items-center justify-center min-h-screen bg-[#071120] p-6 text-white relative overflow-hidden">
-      {/* Decorative ambient background image */}
-      <div className="absolute inset-0 opacity-15 pointer-events-none">
-        <img 
-          src={DANGOTE_ASSETS.refineryAerialHero} 
-          alt="Dangote Refinery" 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#071120] via-[#071120]/80 to-[#071120]" />
-      </div>
-
+    <div id="auth-screen-container" className="flex flex-col items-center justify-center min-h-screen bg-slate-950 p-6 text-white relative overflow-hidden">
       {/* Decorative ambient blurred blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-900/25 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-amber-500/15 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-purple-900/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-yellow-500/10 blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md space-y-7 z-10">
-        <div className="text-center space-y-3 flex flex-col items-center">
-          <div className="bg-white rounded-2xl p-4 shadow-2xl shadow-black/60 border border-slate-200/90 max-w-[220px] sm:max-w-[250px] flex items-center justify-center">
-            <img 
-              src={DANGOTE_ASSETS.logo} 
-              alt="Dangote Petroleum Refinery" 
-              className="w-full h-auto object-contain" 
-              referrerPolicy="no-referrer"
-            />
+      <div className="w-full max-w-md space-y-8 z-10">
+        <div className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-yellow-500 flex items-center justify-center shadow-md">
+            <Sparkles className="text-white" size={24} />
           </div>
           <div>
-            <span className="inline-block bg-red-600 text-white font-black text-[10px] tracking-widest uppercase px-3 py-1 rounded-full shadow-md">
-              Official Shareholder IPO Portal
-            </span>
-            <p className="text-xs text-slate-300 mt-2 max-w-xs mx-auto">
-              Initial Public Offering Allotment & Shareholder Registry
+            <h1 className="text-2xl font-black tracking-tight text-white font-sans bg-clip-text">
+              ONEFUNDZ COOPERATIVE
+            </h1>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+              Secure Yield Multiplying Programs & Microfinance Investment Networks
             </p>
           </div>
         </div>
 
-        <div className="bg-slate-900/80 backdrop-blur-md border border-amber-500/20 p-6 rounded-2xl shadow-2xl space-y-5">
-          <div className="flex bg-[#0a1931] p-1 rounded-xl border border-slate-800 max-w-[260px] mx-auto">
+        <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 p-6 rounded-2xl shadow-xl space-y-6">
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/60 max-w-[240px] mx-auto">
             <button
               onClick={() => { setIsLogin(true); setFeedback(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition duration-200 ${isLogin ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition duration-200 ${isLogin ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              Investor Login
+              Sign In
             </button>
             <button
               onClick={() => { setIsLogin(false); setFeedback(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition duration-200 ${!isLogin ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition duration-200 ${!isLogin ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              Accredit Account
+              Sign Up
             </button>
           </div>
 
@@ -298,7 +291,7 @@ export default function AuthPage() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${feedback.type === 'success' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60' : 'bg-rose-950/40 text-rose-300 border-rose-800/60'}`}
+                className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${feedback.type === 'success' ? 'bg-emerald-950/30 text-emerald-300 border-emerald-900/50' : 'bg-rose-950/30 text-rose-300 border-rose-900/50'}`}
               >
                 {feedback.type === 'success' ? (
                   <CheckCircle size={16} className="text-emerald-400 shrink-0 mt-0.5" />
@@ -314,39 +307,39 @@ export default function AuthPage() {
             {!isLogin && (
               <>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Full Legal Shareholder Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Full Legal Name</label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                     <input
                       type="text"
                       name="fullName"
-                      placeholder="e.g. Aliko Mohammed Danlami"
+                      placeholder="e.g. Mathias Danlami"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                     />
                   </div>
                   {errors.fullName && <p className="text-rose-400 text-[10px] mt-0.5">{errors.fullName}</p>}
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Investor Username</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Username</label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                     <input
                       type="text"
                       name="userName"
-                      placeholder="e.g. dangote_investor01"
+                      placeholder="e.g. mathias99"
                       value={formData.userName}
                       onChange={handleInputChange}
-                      className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                     />
                   </div>
                   {errors.userName && <p className="text-rose-400 text-[10px] mt-0.5">{errors.userName}</p>}
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Mobile Phone Number</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Phone Number</label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                     <input
@@ -355,7 +348,7 @@ export default function AuthPage() {
                       placeholder="+234..."
                       value={formData.phoneNumber}
                       onChange={handleInputChange}
-                      className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                     />
                   </div>
                 </div>
@@ -369,17 +362,17 @@ export default function AuthPage() {
                 <input
                   type="email"
                   name="email"
-                  placeholder="investor@example.com"
+                  placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                  className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                 />
               </div>
               {errors.email && <p className="text-rose-400 text-[10px] mt-0.5">{errors.email}</p>}
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Account Password</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Password</label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                 <input
@@ -388,7 +381,7 @@ export default function AuthPage() {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                  className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                 />
               </div>
               {errors.password && <p className="text-rose-400 text-[10px] mt-0.5">{errors.password}</p>}
@@ -406,7 +399,7 @@ export default function AuthPage() {
                       placeholder="••••••••"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition"
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition"
                     />
                   </div>
                   {errors.confirmPassword && <p className="text-rose-400 text-[10px] mt-0.5">{errors.confirmPassword}</p>}
@@ -414,18 +407,18 @@ export default function AuthPage() {
 
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Ambassador / Referral Code</label>
-                    <span className="text-[9px] text-amber-400 font-semibold uppercase font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-800/20">Optional</span>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Referral Code</label>
+                    <span className="text-[9px] text-purple-400 font-semibold uppercase font-mono bg-purple-500/10 px-2 py-0.5 rounded border border-purple-800/20">Optional</span>
                   </div>
                   <div className="relative">
                     <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 animate-pulse" size={16} />
                     <input
                       type="text"
                       name="referralCodeInput"
-                      placeholder="e.g. DANLAMI2026"
+                      placeholder="e.g. AMADI42_COOP"
                       value={formData.referralCodeInput}
                       onChange={(e) => setFormData({ ...formData, referralCodeInput: e.target.value.toUpperCase() })}
-                      className="w-full bg-[#071120] border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none transition uppercase"
+                      className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-600 p-3 pl-10 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none transition uppercase"
                     />
                   </div>
                 </div>
@@ -435,24 +428,23 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white py-3.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-40 shadow-lg shadow-red-900/30 active:scale-[0.99]"
+              className="w-full bg-purple-600 hover:bg-purple-750 text-white py-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-40"
             >
               {loading ? (
                 <div className="w-4 h-4 rounded-full border-2 border-slate-900 border-t-white animate-spin" />
               ) : (
                 <>
                   <LogIn size={15} />
-                  <span>{isLogin ? 'Access Shareholder Dashboard' : 'Complete Shareholder Registration'}</span>
+                  <span>{isLogin ? 'Sign In to Dashboard' : 'Create & Launch Account'}</span>
                 </>
               )}
             </button>
           </form>
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 text-center">
-          <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
-          <span>Dangote Petroleum Refinery & Petrochemicals PLC · Certified Pre-IPO Allotment</span>
-        </div>
+        <p className="text-center text-[10px] text-slate-550">
+          By signing on, you authorize premium yield mutual allocations under regulatory microfinance guidelines.
+        </p>
       </div>
 
       {/* CUSTOM PROMPT SWITCH DIALOG MODAL (Iframe proof) */}

@@ -12,8 +12,12 @@ export default function CoopReferral({ userData }: CoopReferralProps) {
   const [copied, setCopied] = useState(false);
   const { success } = useToast();
 
+  const primaryDomain = 'https://dangote-shares.vercel.app';
+  const baseUrl = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('run.app')
+    ? window.location.origin
+    : primaryDomain;
   const refCode = userData?.referralCode || (userData?.userName ? userData.userName.toUpperCase() : 'DANGOTE');
-  const referralLink = `${window.location.origin}/?ref=${encodeURIComponent(refCode)}`;
+  const referralLink = `${baseUrl}/?ref=${encodeURIComponent(refCode)}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

@@ -164,8 +164,12 @@ export default function DepositModal({ onClose, onOpenPortfolio }: DepositModalP
 
     setIsSubmitting(true);
     try {
+      const userEmail = auth.currentUser.email.toLowerCase();
+      const userUid = auth.currentUser.uid;
+
       await addDoc(collection(db, 'deposits'), {
-        userId: auth.currentUser.email.toLowerCase(),
+        userId: userEmail,
+        userUid: userUid,
         amount: amtFloat,
         receiptUrl,
         reference: reference.trim() || 'Paystack Deposit',
@@ -177,7 +181,8 @@ export default function DepositModal({ onClose, onOpenPortfolio }: DepositModalP
 
       // Also log pending transaction
       await addDoc(collection(db, 'transactions'), {
-        userId: auth.currentUser.email.toLowerCase(),
+        userId: userEmail,
+        userUid: userUid,
         description: `Deposit via Paystack (Pending Admin Approval)`,
         amount: amtFloat,
         category: 'deposit',

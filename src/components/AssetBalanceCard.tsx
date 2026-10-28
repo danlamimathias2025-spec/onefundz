@@ -9,6 +9,63 @@ interface AssetBalanceCardProps {
   totalSharesCount?: number;
 }
 
+/**
+ * Custom hook to smoothly interpolate number values with cubic ease-out
+ */
+function useSmoothCounter(targetValue: number, duration: number = 1000): number {
+  const [currentDisplay, setCurrentDisplay] = useState(0);
+  const startValRef = useRef(0);
+  const targetValRef = useRef(targetValue);
+  const startTimeRef = useRef<number | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const hasInitializedRef = useRef(false);
+
+  useEffect(() => {
+    // Determine start value: either previous animated value or 0 on first mount
+    const start = hasInitializedRef.current ? currentDisplay : 0;
+    hasInitializedRef.current = true;
+    startValRef.current = start;
+    targetValRef.current = targetValue;
+    startTimeRef.current = null;
+
+    if (start === targetValue) {
+      setCurrentDisplay(targetValue);
+      return;
+    }
+
+    const step = (timestamp: number) => {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = timestamp;
+      }
+
+      const elapsed = timestamp - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease out cubic function for natural slowing down at the end
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const nextVal = startValRef.current + (targetValRef.current - startValRef.current) * easeOut;
+
+      setCurrentDisplay(nextVal);
+
+      if (progress < 1) {
+        rafIdRef.current = requestAnimationFrame(step);
+      } else {
+        setCurrentDisplay(targetValRef.current);
+      }
+    };
+
+    rafIdRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, [targetValue, duration]);
+
+  return currentDisplay;
+}
+
 export default function AssetBalanceCard({ 
   balance = 0, 
   projectedValue = 0,
@@ -18,15 +75,18 @@ export default function AssetBalanceCard({
   const prevBalanceRef = useRef(balance);
   const [animateProps, setAnimateProps] = useState({ scale: 1, color: 'rgb(255, 255, 255)' });
 
+  // Smooth animated balance counter
+  const animatedBalance = useSmoothCounter(balance, 1100);
+
   useEffect(() => {
     if (balance > prevBalanceRef.current) {
       setAnimateProps({ scale: 1.05, color: 'rgb(34, 197, 94)' });
-      const timer = setTimeout(() => setAnimateProps({ scale: 1, color: 'rgb(255, 255, 255)' }), 600);
+      const timer = setTimeout(() => setAnimateProps({ scale: 1, color: 'rgb(255, 255, 255)' }), 700);
       prevBalanceRef.current = balance;
       return () => clearTimeout(timer);
     } else if (balance < prevBalanceRef.current) {
       setAnimateProps({ scale: 1.05, color: 'rgb(239, 68, 68)' });
-      const timer = setTimeout(() => setAnimateProps({ scale: 1, color: 'rgb(255, 255, 255)' }), 600);
+      const timer = setTimeout(() => setAnimateProps({ scale: 1, color: 'rgb(255, 255, 255)' }), 700);
       prevBalanceRef.current = balance;
       return () => clearTimeout(timer);
     }
@@ -59,7 +119,7 @@ export default function AssetBalanceCard({
           className="text-3xl font-extrabold my-0.5 font-mono text-white tracking-tight" 
           id="balance-amount-display"
         >
-          ₦ {balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          ₦ {animatedBalance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </motion.div>
         
         {totalSharesCount > 0 && (

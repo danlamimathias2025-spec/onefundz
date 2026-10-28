@@ -3,16 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Dangote Refinery IPO | Official Share Allocation & Trading Portal</title>
-    <meta name="description" content="Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. Buy, manage, and resell shares directly." />
-    <meta property="og:title" content="Dangote Refinery IPO | Official Share Allocation & Trading Portal" />
-    <meta property="og:description" content="Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. Buy, manage, and resell shares directly." />
+    <title>OneFundz | Modern Mobile Investment & Wealth Management</title>
+    <meta name="description" content="A modern, minimalist mobile investment and wealth management dashboard." />
+    <meta property="og:title" content="OneFundz | Modern Mobile Investment & Wealth Management" />
+    <meta property="og:description" content="A modern, minimalist mobile investment and wealth management dashboard." />
     
     <!-- PWA primary configs -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0a1931" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
+    
+    <!-- Canonical & SEO Meta -->
+    <link rel="canonical" href="https://dangote-shares.vercel.app/" />
+    <meta property="og:url" content="https://dangote-shares.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://dangote-shares.vercel.app/logo.png" />
+    <meta property="og:site_name" content="Dangote Refinery IPO" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dangote Refinery IPO | Official Share Allocation & Trading Portal" />
+    <meta name="twitter:description" content="Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. 4.1 Billion ordinary shares at ₦525 per share." />
+    <meta name="twitter:image" content="https://dangote-shares.vercel.app/logo.png" />
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Dangote Petroleum Refinery IPO Portal",
+      "url": "https://dangote-shares.vercel.app/",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "All",
+      "description": "Official Dangote Petroleum Refinery IPO Share Allocation & Investor Trading Portal. 4.1 Billion shares offered at ₦525.00 per share to raise ₦2.15 Trillion.",
+      "offers": {
+        "@type": "Offer",
+        "price": "525.00",
+        "priceCurrency": "NGN",
+        "availability": "https://schema.org/InStock",
+        "validFrom": "2026-09-14"
+      }
+    }
+    </script>
     
     <!-- iOS support meta marks -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -36,10 +67,13 @@
       if ('caches' in window) {
         caches.keys().then(function(names) {
           for (let name of names) {
-            caches.delete(name);
+            caches.delete(name).then(() => console.log('[Cache] Cleared stale cache:', name));
           }
         });
       }
+      try {
+        localStorage.removeItem('readNotifications');
+      } catch(e) {}
     </script>
   </body>
 </html>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import EmptyState from './EmptyState';
 import SkeletonCard from './SkeletonCard';
 import { Check, AlertCircle, Loader2, Clock, XCircle } from 'lucide-react';
-import { db, auth } from '@/src/lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { 
   doc, 
   onSnapshot, 
@@ -224,14 +224,20 @@ export default function Transactions() {
 
   useEffect(() => {
     if (!auth.currentUser || !auth.currentUser.email) {
+      setBankData(null);
+      setDbInvestments([]);
+      setDbWithdrawals([]);
+      setDbDeposits([]);
+      setDbPurchases([]);
       setLoading(false);
       return;
     }
 
-    const email = auth.currentUser.email;
+    const email = auth.currentUser.email.trim().toLowerCase();
+    const userUid = auth.currentUser.uid;
 
-    // 1. Subscribe to biological user data (balance, username, account info)
-    const userDocRef = doc(db, 'users', auth.currentUser.uid);
+    // 1. Subscribe to user data (balance, username, account info)
+    const userDocRef = doc(db, 'users', userUid);
     const unsubUser = onSnapshot(userDocRef, (snap) => {
       if (snap.exists()) {
         setBankData(snap.data());
@@ -314,7 +320,7 @@ export default function Transactions() {
       unsubDep();
       unsubTrans();
     };
-  }, []);
+  }, [auth.currentUser?.uid]);
 
   const handleWithdrawalRequest = async () => {
     if (!auth.currentUser || !auth.currentUser.email || !bankData) return;
@@ -346,6 +352,13 @@ export default function Transactions() {
       return;
     }
 
+    // Strict validation check: withdrawals only permitted once overall active investment packages have finished/ended.
+    const activeRunningPlans = dbInvestments.filter(inv => (inv.remainingDays || 0) > 0);
+    if (activeRunningPlans.length > 0) {
+      alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
+      return;
+    }
+
     setShowWithdrawCheckOverlay(true);
   };
 
@@ -354,8 +367,10 @@ export default function Transactions() {
     const amount = parseFloat(withdrawalAmount);
     const currentBalance = bankData.balance || 0;
 
-    if (amount > currentBalance) {
-      alert(`Withdrawal failed.\n\nYour requested withdrawal (₦${amount.toLocaleString()}) exceeds your available cash balance (₦${currentBalance.toLocaleString()}).`);
+    // Strict validation check: withdrawals only permitted once overall active investment packages have finished/ended.
+    const activeRunningPlans = dbInvestments.filter(inv => (inv.remainingDays || 0) > 0);
+    if (activeRunningPlans.length > 0) {
+      alert("Withdrawal request failed.\n\nYour purchased product/package is still active. Please wait until your active product validity period has completely finished or ended.");
       return;
     }
 
@@ -370,6 +385,7 @@ export default function Transactions() {
       // 2. Save active withdrawal request
       await addDoc(collection(db, 'withdrawals'), {
         userId: auth.currentUser.email.toLowerCase(),
+        userUid: auth.currentUser.uid,
         amount: amount,
         bankName: bankData.bankName,
         accountName: bankData.accountName,
@@ -394,12 +410,10 @@ export default function Transactions() {
   const compiledLedger: CombinedLedgerItem[] = [
     ...dbPurchases.map(t => {
       const isRef = t.category === 'referral';
-      const isResale = t.category === 'resale';
-      const isPositive = isRef || isResale;
       return {
         id: t.id,
-        description: t.description || (isResale ? 'Shares Resale Proceeds' : isRef ? 'Shareholder Referral Bonus' : 'Dangote Refinery Share Purchase'),
-        amount: isPositive ? t.amount : -t.amount,
+        description: t.description || (isRef ? 'Referral Reward' : 'Plan Subscription'),
+        amount: isRef ? t.amount : -t.amount,
         category: (t.category || 'purchase') as any,
         status: (t.status || 'approved') as any,
         date: t.dateString,

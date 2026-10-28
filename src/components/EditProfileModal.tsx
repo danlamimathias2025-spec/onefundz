@@ -133,9 +133,15 @@ export default function EditProfileModal({ onClose, currentUserName, currentAvat
       return;
     }
 
+    const targetUserId = userId || auth.currentUser?.uid;
+    if (!targetUserId) {
+      toastError('Authentication Error', 'User session missing.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(db, 'users', targetUserId);
       await updateDoc(userRef, {
         userName: userName.trim(),
         avatarUrl: avatarUrl
